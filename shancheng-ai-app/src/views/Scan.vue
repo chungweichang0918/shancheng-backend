@@ -70,7 +70,7 @@ const topPrediction = ref(null);  // 儲存辨識率最高的結果
 
 // 我們先預載一個通用型植物辨識模型，供您 Demo。
 // 💡 將來若要在競賽中展示「茶葉辨識」，您需要在這裡換成您訓練好的 TM 模型網址
-const MODEL_URL = "https://teachablemachine.withgoogle.com/models/S4xI1m2C9/"; 
+const MODEL_URL = "/model/"; 
 let model;
 let maxPredictions;
 let webCam;
