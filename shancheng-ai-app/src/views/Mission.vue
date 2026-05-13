@@ -11,11 +11,11 @@
       <div class="points-card shadow">
         <div class="card-inner">
           <div class="points-header">累積綠色點數</div>
-          <div class="points-value">350 <span class="unit">pt</span></div>
+          <div class="points-value">{{ userStore.greenPoints }} <span class="unit">pt</span></div>
           <div class="level-tag">初階山城旅人</div>
         </div>
         <div class="progress-bar-wrap">
-          <div class="progress-info">距離下一級還差 150 pt</div>
+          <div class="progress-info">距離下一級還差 {{ 500 - userStore.greenPoints }} pt</div>
           <div class="bar-bg"><div class="bar-fill" style="width: 70%"></div></div>
         </div>
       </div>
@@ -38,11 +38,13 @@
 </template>
 
 <script setup>
+import { useUserStore } from '../stores/userStore';
 const missions = [
   { icon: '📷', title: '解鎖食農知識', progress: '3 / 3', percent: 100, complete: true },
   { icon: '🚶', title: '綠色路徑探險', progress: '1.2 / 3 km', percent: 40, complete: false },
   { icon: '🎧', title: '深度故事導覽', progress: '1 / 2 個', percent: 50, complete: false }
 ];
+const userStore = useUserStore();
 </script>
 
 <style scoped>
