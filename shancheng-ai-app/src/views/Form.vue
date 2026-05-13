@@ -128,7 +128,7 @@ const fetchAIRecommendation = async (isRetry = false) => {
 
   try {
     // ⚠️ 記得把 IP 換成您手機測試用的 172.20.10.9
-    const response = await fetch('http://172.20.10.9:8000/api/recommend', {
+    const response = await fetch('http://localhost:8000/api/recommend', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
