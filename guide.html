@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智慧導覽 - 山城 AI 智慧旅伴</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root { --eco-green: #28a745; --tech-blue: #007bff; }
+    body { background-color: #f8f9fa; padding-bottom: 90px; }
+    
+    /* 頂部透明/半透明導覽列，疊加在圖片上 */
+    .top-bar-transparent {
+      position: absolute; top: 0; left: 0; width: 100%;
+      padding: 15px; z-index: 10;
+      display: flex; justify-content: space-between; align-items: center;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
+    }
+    .top-bar-transparent .back-btn, .top-bar-transparent .icon-btn {
+      color: white; font-size: 1.5rem; text-decoration: none; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+
+    /* 景點主圖區 */
+    .attraction-hero {
+      height: 40vh;
+      background: url('https://images.unsplash.com/photo-1542259009477-d625272157b7?q=80&w=1600&auto=format&fit=crop') center/cover no-repeat;
+      position: relative;
+    }
+
+    /* 導覽資訊主體，使用白底卡片向上浮出覆蓋圖片 */
+    .guide-content {
+      background-color: white;
+      border-radius: 30px 30px 0 0;
+      padding: 30px 20px;
+      margin-top: -40px; /* 向上提，覆蓋在主圖上 */
+      position: relative;
+      z-index: 5;
+      box-shadow: 0 -5px 15px rgba(0,0,0,0.1);
+      min-height: 60vh;
+    }
+
+    /* 標籤樣式 */
+    .badge-eco { background-color: #eafaf1; color: var(--eco-green); border: 1px solid var(--eco-green); }
+
+    /* 語音播放器樣式 */
+    .audio-player-card {
+      background-color: #f1f3f5;
+      border-radius: 20px;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+    .play-btn {
+      width: 50px; height: 50px;
+      background-color: var(--eco-green);
+      color: white; border-radius: 50%;
+      display: flex; justify-content: center; align-items: center;
+      font-size: 1.2rem; text-decoration: none; box-shadow: 0 4px 10px rgba(40,167,69,0.3);
+    }
+    .audio-info { flex-grow: 1; }
+    .progress-bar-custom { height: 6px; background-color: var(--eco-green); width: 30%; border-radius: 3px; }
+    .progress-bg { height: 6px; background-color: #dee2e6; border-radius: 3px; width: 100%; margin-top: 8px;}
+
+    /* 語言切換按鈕組 */
+    .lang-switch { display: flex; gap: 10px; margin-bottom: 10px; }
+    .lang-btn {
+      padding: 5px 12px; font-size: 0.85rem; border-radius: 20px;
+      border: 1px solid #ccc; background: white; color: #555;
+    }
+    .lang-btn.active { background-color: var(--eco-green); color: white; border-color: var(--eco-green); }
+
+  </style>
+</head>
+<body>
+
+  <div class="attraction-hero">
+    <div class="top-bar-transparent">
+      <a href="index.html" class="back-btn">←</a>
+      <a href="#" class="icon-btn">🧭</a>
+    </div>
+  </div>
+
+  <div class="guide-content">
+    <div class="d-flex justify-content-between align-items-start mb-3">
+      <div>
+        <h2 class="fw-bold mb-1">大崙山銀杏森林</h2>
+        <span class="badge badge-eco me-1">生態探索</span>
+        <span class="badge bg-secondary">鹿谷鄉</span>
+      </div>
+      <div class="text-muted small text-end"><span class="fs-4">📍</span><br>距您 1.2km</div>
+    </div>
+
+    <div class="audio-player-card">
+      <a href="#" class="play-btn">▶</a>
+      <div class="audio-info">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="fw-bold">AI 智慧語音導覽</span>
+          <span class="small text-muted">01:25 / 03:40</span>
+        </div>
+        <div class="lang-switch">
+          <button class="lang-btn active">中文</button>
+          <button class="lang-btn">台語</button>
+          <button class="lang-btn">English</button>
+        </div>
+        <div class="progress-bg"><div class="progress-bar-custom"></div></div>
+      </div>
+    </div>
+
+    <h5 class="fw-bold mb-3">景點故事</h5>
+    <p class="text-muted" style="line-height: 1.8;">
+      大崙山銀杏森林位處海拔 1300 至 1600 公尺，是東南亞面積最大的銀杏林。這裡原本主要栽種烏龍茶，配合水土保持政策，農民在茶園中混植了銀杏樹，造就了如今茶樹與銀杏交織的獨特景觀。
+    </p>
+    <p class="text-muted" style="line-height: 1.8;">
+      每逢秋季，銀杏葉轉為金黃，與翠綠的茶園相互輝映，更可遠眺雲海，是極具生態與視覺美感的必訪景點。
+    </p>
+
+    <h5 class="fw-bold mt-4 mb-3">食農知識</h5>
+    <div class="card border-0 bg-light p-3 rounded-4">
+      <p class="mb-0 text-muted small"><strong>🌱 杉林溪高山茶：</strong>此地日夜溫差大，常有雲霧繚繞，茶葉生長緩慢，因此茶湯喝起來特別甘甜順口，帶有獨特的「高山氣」。</p>
+    </div>
+  </div>
+
+</body>
+</html>
