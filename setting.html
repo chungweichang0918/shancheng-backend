@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>系統設定 - 山城 AI 智慧旅伴</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root { --eco-green: #28a745; }
+    body { background-color: #f8f9fa; padding-bottom: 90px; }
+    
+    .top-bar { background-color: white; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 10; display: flex; align-items: center;}
+    .back-btn { font-size: 1.2rem; text-decoration: none; color: #333; margin-right: 15px; }
+
+    /* 使用者個人簡介區 */
+    .profile-section {
+      background-color: white;
+      padding: 30px 20px;
+      text-align: center;
+      border-bottom: 1px solid #eee;
+      margin-bottom: 20px;
+    }
+    .avatar-placeholder {
+      width: 80px; height: 80px;
+      background-color: #e9ecef;
+      border-radius: 50%;
+      margin: 0 auto 15px auto;
+      display: flex; justify-content: center; align-items: center;
+      font-size: 2rem; color: #adb5bd;
+      border: 3px solid white;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    /* 設定列表樣式 */
+    .settings-group { background-color: white; margin-bottom: 20px; border-top: 1px solid #eee; border-bottom: 1px solid #eee; }
+    .settings-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 15px 20px;
+      text-decoration: none; color: #333;
+      border-bottom: 1px solid #f8f9fa;
+      transition: background-color 0.2s;
+    }
+    .settings-item:last-child { border-bottom: none; }
+    .settings-item:active { background-color: #f1f3f5; }
+    .settings-item i-text { color: #888; font-size: 0.9rem; }
+    .settings-label { display: flex; align-items: center; gap: 15px; }
+    .settings-icon { font-size: 1.2rem; width: 25px; text-align: center; }
+
+    /* 登出按鈕 */
+    .logout-btn { color: #dc3545 !important; font-weight: bold; justify-content: center !important; }
+
+    /* 底部導覽列 */
+    .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 70px; background-color: white; border-top: 1px solid #dee2e6; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); display: flex; justify-content: space-around; align-items: center; z-index: 1030; }
+    .bottom-nav__item { display: flex; flex-direction: column; align-items: center; text-decoration: none; color: #666; font-size: 0.8rem; }
+    .bottom-nav__item:hover, .bottom-nav__item.active { color: var(--eco-green); }
+    .bottom-nav__icon { font-size: 20px; margin-bottom: 2px; }
+  </style>
+</head>
+<body>
+
+  <div class="top-bar">
+    <a href="index.html" class="back-btn">←</a>
+    <h5 class="mb-0 fw-bold">系統設定</h5>
+  </div>
+
+  <div class="profile-section">
+    <div class="avatar-placeholder">👤</div>
+    <h5 class="fw-bold mb-1">測試使用者</h5>
+    <p class="text-muted small mb-0">綠色旅人等級：初階旅人 (350pt)</p>
+  </div>
+
+  <div class="settings-group">
+    <a href="#" class="settings-item">
+      <div class="settings-label">
+        <span class="settings-icon">👤</span> <span>個人資料設定</span>
+      </div>
+      <span class="i-text">›</span>
+    </a>
+    <a href="#" class="settings-item">
+      <div class="settings-label">
+        <span class="settings-icon">🔔</span> <span>推播通知</span>
+      </div>
+      <div class="form-check form-switch mb-0">
+        <input class="form-check-input" type="checkbox" checked>
+      </div>
+    </a>
+    <a href="#" class="settings-item">
+      <div class="settings-label">
+        <span class="settings-icon">🌐</span> <span>多國語言切換</span>
+      </div>
+      <span class="i-text">繁體中文 ›</span>
+    </a>
+  </div>
+
+  <div class="settings-group">
+    <a href="#" class="settings-item">
+      <div class="settings-label">
+        <span class="settings-icon">📜</span> <span>隱私權政策</span>
+      </div>
+      <span class="i-text">›</span>
+    </a>
+    <a href="#" class="settings-item">
+      <div class="settings-label">
+        <span class="settings-icon">ℹ️</span> <span>關於山城 AI 智慧旅伴</span>
+      </div>
+      <span class="i-text">v1.0.0 (Beta) ›</span>
+    </a>
+    <a href="#" class="settings-item">
+      <div class="settings-label">
+        <span class="settings-icon">🏫</span> <span>USR 計畫簡介</span>
+      </div>
+      <span class="i-text">›</span>
+    </a>
+  </div>
+
+  <div class="settings-group">
+    <a href="#" class="settings-item logout-btn">登出帳號</a>
+  </div>
+
+  <div class="text-center text-muted small mt-4">
+    © 2026 山城 AI 智慧旅伴專案小組
+  </div>
+
+  <nav class="bottom-nav d-md-none">
+    <a href="index.html" class="bottom-nav__item">
+      <div class="bottom-nav__icon">🏠</div> <span>首頁</span>
+    </a>
+    <a href="form.html" class="bottom-nav__item">
+      <div class="bottom-nav__icon">🗺️</div> <span>行程</span>
+    </a>
+    <a href="scan.html" class="bottom-nav__item">
+      <div class="bottom-nav__icon">📷</div> <span>辨識</span>
+    </a>
+    <a href="mission.html" class="bottom-nav__item">
+      <div class="bottom-nav__icon">🏅</div> <span>任務</span>
+    </a>
+  </nav>
+
+</body>
+</html>
