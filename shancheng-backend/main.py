@@ -1,3 +1,6 @@
+import os
+import uvicorn
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -65,3 +68,8 @@ async def get_recommendation(req: TravelRequest):
     except Exception as e:
         print(f"AI 產生錯誤: {e}")
         return {"status": "error"}
+    
+if __name__ == "__main__":
+    # 從環境變數抓 Port，抓不到就用 8000
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
