@@ -1,31 +1,18 @@
 <template>
   <div class="scan-page">
     <video ref="videoRef" autoplay playsinline muted class="camera-stream"></video>
+    <canvas ref="canvasRef" style="display: none;"></canvas>
     
     <div class="camera-ui-overlay">
       <router-link to="/" class="close-scan" @click="stopCamera">✕</router-link>
-      
-      <div class="scanner-frame" :class="{ 'analyzing': isAnalyzing }">
+      <div class="scanner-frame">
         <div class="corner t-l"></div><div class="corner t-r"></div>
         <div class="corner b-l"></div><div class="corner b-r"></div>
-        
-        <div v-if="isLoadingModel" class="model-loading-box">
-          <div class="spinner-border text-light mb-2" role="status"></div>
-          <p class="text-white small m-0">正在載入南投食農 AI 模型...</p>
-        </div>
-        
-        <div class="scan-line" v-show="!isLoadingModel && isAnalyzing"></div>
       </div>
-
       <div class="camera-footer">
-        <div v-if="topPrediction && isAnalyzing" class="realtime-result-label shadow">
-          🔍 您拍的是：<strong class="text-success">{{ topPrediction.className }}</strong>
-        </div>
-        
-        <div class="instruction">對準農作物或在地植物，AI 將自動辨識</div>
-        
-        <button class="shutter-btn" @click="handleShutterClick" :disabled="isLoadingModel || !isAnalyzing">
-          <span v-if="isLoadingModel" class="spinner-shutter"></span>
+        <div class="instruction">{{ t.desc }}</div>
+        <button class="shutter-btn" @click="handleShutterClick" :disabled="isUploading">
+          <span v-if="isUploading" class="spinner-shutter"></span>
         </button>
       </div>
     </div>
@@ -35,18 +22,19 @@
       <div class="result-body">
         <div v-if="topPrediction" class="result-content-wrap">
           <div class="result-header">
-            <div class="res-icon">🍃</div>
+            <div class="res-icon">🤖</div>
             <div>
-              <div class="confidence">南投在地辨識率 {{ (topPrediction.probability * 100).toFixed(1) }}%</div>
+              <div class="confidence">{{ t.aiParse }}</div>
               <h3 class="res-name">{{ topPrediction.className }}</h3>
             </div>
           </div>
-          <p class="res-desc">
-            這是南投當地著名的農特產，具有獨特的冷香與甘甜味，是食農教育體驗中非常受歡迎的主角！
-          </p>
+          <div class="res-desc-container">
+             <p class="res-desc">{{ topPrediction.description }}</p>
+          </div>
           <div class="btn-group">
-            <router-link class="btn-learn" to="/guide">📖 了解更多導覽 story</router-link>
-            <button class="btn-stamp" @click="showResult = false">🏅 領取綠色成就 (集章)</button>
+            <button class="btn-learn" @click="closeAndReturn" :class="{'bg-success': route.query.taskId}">
+              {{ route.query.taskId ? t.taskSuccess : t.closeBtn }}
+            </button>
           </div>
         </div>
       </div>
@@ -55,179 +43,138 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue';
-import * as tf from '@tensorflow/tfjs';
-import * as tmImage from '@teachablemachine/image';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useUserStore } from '../stores/userStore';
 
-// --- 一、 相機與 UI 控制變數 ---
-const videoRef = ref(null);         // 綁定 Video 元素
-const isLoadingModel = ref(true);  // 控制模型載入中狀態
-const isAnalyzing = ref(true);     // 控制即時辨識迴圈
-const showResult = ref(false);      // 控制結果卡片
-const topPrediction = ref(null);  // 儲存辨識率最高的結果
+const route = useRoute();
+const router = useRouter();
+const userStore = useUserStore();
 
-// --- 二、 Teachable Machine (Edge AI) 核心邏輯 ---
+// 🌟 四國語言字典
+const sysLang = ref(localStorage.getItem('shancheng_sys_lang') || 'zh');
+const t = computed(() => {
+  const dict = {
+    zh: { desc: '對準南投在地植物、特產或風景，讓 AI 說故事給你聽！', closeBtn: '關閉繼續探索', taskSuccess: '✅ 任務驗證成功！點此返回領獎', aiParse: '雲端 OpenCV 解析' },
+    en: { desc: 'Point at local plants or views for AI stories!', closeBtn: 'Close & Explore', taskSuccess: '✅ Mission Verified! Return', aiParse: 'Cloud AI Vision' },
+    ja: { desc: '地元の植物や風景に向けてAIの話を聞こう！', closeBtn: '閉じて探索を続ける', taskSuccess: '✅ タスク完了！戻る', aiParse: 'AI ビジョン解析' },
+    ko: { desc: '현지 식물이나 풍경을 가리키면 AI가 이야기를 들려줍니다!', closeBtn: '닫고 계속 탐색', taskSuccess: '✅ 미션 인증 성공! 돌아가기', aiParse: 'AI 비전 분석' }
+  };
+  return dict[sysLang.value] || dict.zh;
+});
 
-// 我們先預載一個通用型植物辨識模型，供您 Demo。
-// 💡 將來若要在競賽中展示「茶葉辨識」，您需要在這裡換成您訓練好的 TM 模型網址
-const MODEL_URL = "/model/"; 
-let model;
-let maxPredictions;
-let webCam;
-let animationId; // 用來記錄與取消 requestAnimationFrame
+const NGROK_BASE_URL = "https://demystify-primary-correct.ngrok-free.dev";
 
-// 1. 初始化相機與載入模型
+const videoRef = ref(null);
+const canvasRef = ref(null);
+const showResult = ref(false);
+const isUploading = ref(false);
+const topPrediction = ref(null);
+let stream = null;
+
 onMounted(async () => {
-  // A. 請求相機權限並啟動 (使用 facingMode: 'environment' 指定後鏡頭)
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment' },
-      audio: false
-    });
-    // 將相機串流塞入 Video 元素
-    if (videoRef.value) {
-      videoRef.value.srcObject = stream;
-    }
-  } catch (error) {
-    console.error("相機存取失敗:", error);
-    alert("掃描功能需要您的相機權限才能正常運作哦！");
-    isLoadingModel.value = false;
+  userStore.restoreSession();
+  
+  if (!userStore.isLoggedIn) {
+    alert("🔒 AI 山城萬物鏡需要先登入才能解鎖喔！");
+    router.push('/');
     return;
   }
 
-  // B. 載入機器學習模型
+  document.body.classList.add('hide-bottom-nav');
+
   try {
-    const modelURL = MODEL_URL + "model.json";
-    const metadataURL = MODEL_URL + "metadata.json";
-    
-    // 從 TM 網址載入模型與其元數據
-    model = await tmImage.load(modelURL, metadataURL);
-    maxPredictions = model.getTotalClasses();
-    
-    isLoadingModel.value = false;
-    console.log("食農 AI 模型載入成功！");
-    
-    // C. 啟動即時辨識迴圈
-    predictLoop();
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    if (videoRef.value) videoRef.value.srcObject = stream;
   } catch (error) {
-    console.error("模型載入失敗:", error);
-    isLoadingModel.value = false;
-    alert("模型載入失敗，可能發生網路問題，請重新整理試試！");
+    alert("掃描功能需要您的相機權限才能正常運作哦！");
   }
 });
 
-// 2. 核心：即時辨識迴圈 (Edge AI 邊緣運算)
-const predictLoop = async () => {
-  // 如果正在顯示結果、或是模型未載入，就停止辨識以節省效能
-  if (showResult.value || isLoadingModel.value || !model || !videoRef.value) {
-    animationId = window.requestAnimationFrame(predictLoop);
-    return; 
-  }
-
-  // 使用模型對當前的 Video 畫面進行預測
-  const prediction = await model.predict(videoRef.value);
-  
-  // 3. 解析結果：找到辨識率最高的項目
-  let highest = { className: "", probability: 0 };
-  for (let i = 0; i < maxPredictions; i++) {
-    // 門檻：機率大於 80% 且比當前的還高
-    if (prediction[i].probability > 0.8 && prediction[i].probability > highest.probability) {
-      highest = prediction[i];
-    }
-  }
-
-  // 4. 更新畫面顯示的結果
-  if (highest.probability > 0) {
-    topPrediction.value = highest;
-  } else {
-    topPrediction.value = null; // 機率太低就顯示未辨識
-  }
-
-  // 繼續下一次辨識 (使用 requestAnimationFrame 讓效能最佳化)
-  animationId = window.requestAnimationFrame(predictLoop);
-};
-
-// --- 三、 UI 互動邏輯 ---
-
-// 按下快門鍵，顯示最終結果
 const handleShutterClick = () => {
-  if (topPrediction.value) {
-    // 1. 顯示結果卡片
-    showResult.value = true;
-  } else {
-    alert("尚未辨識出特定的農作物，請換一個角度試試！");
-  }
+  if (!videoRef.value || !canvasRef.value) return;
+  isUploading.value = true;
+  
+  const video = videoRef.value;
+  const canvas = canvasRef.value;
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  canvas.toBlob(async (blob) => {
+    const formData = new FormData();
+    formData.append('file', blob, 'scan_image.jpg');
+    // 🌟 核心修正：將當前的系統語言打包，一起送到後端給 AI 知道！
+    formData.append('language', sysLang.value); 
+
+    try {
+      const response = await fetch(`${NGROK_BASE_URL}/api/scan`, {
+        method: 'POST',
+        headers: { 'ngrok-skip-browser-warning': 'true' },
+        body: formData, 
+      });
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        topPrediction.value = result.data;
+        showResult.value = true;
+        
+        if (route.query.taskId && userStore.isLoggedIn) {
+           const taskId = parseInt(route.query.taskId);
+           const verified = JSON.parse(localStorage.getItem(`verified_missions_${userStore.username}`) || '[]');
+           if (!verified.includes(taskId)) {
+               verified.push(taskId);
+               localStorage.setItem(`verified_missions_${userStore.username}`, JSON.stringify(verified));
+           }
+        }
+      } else {
+        alert(result.message);
+      }
+    } catch (error) {
+      alert("連線到 AI 伺服器失敗，請確認你的 API 網址是否正確！");
+    } finally {
+      isUploading.value = false;
+    }
+  }, 'image/jpeg', 0.8);
 };
 
-// 停止相機的函數 (在離開頁面時呼叫)
-const stopCamera = () => {
-  // 1. 取消即時辨識迴圈，節省處理器資源
-  if (animationId) {
-    window.cancelAnimationFrame(animationId);
-  }
-
-  // 2. 找到相機串流的所有軌道並關閉它
-  const stream = videoRef.value?.srcObject;
-  if (stream) {
-    const tracks = stream.getTracks();
-    tracks.forEach(track => track.stop());
-    console.log("相機已關閉");
-  }
+const closeAndReturn = () => {
+  showResult.value = false;
+  if (route.query.taskId) { router.push('/mission'); }
 };
 
-// 在元件卸載前，務必把相機關閉 (重要 UX 細節)
-onUnmounted(() => {
-  stopCamera();
+const stopCamera = () => { if (stream) stream.getTracks().forEach(track => track.stop()); };
+
+onUnmounted(() => { 
+  stopCamera(); 
+  document.body.classList.remove('hide-bottom-nav');
 });
 </script>
 
 <style scoped>
 .scan-page { position: fixed; inset: 0; background: black; z-index: 2000; overflow: hidden; display: flex; flex-direction: column; }
-
-/* 🌟 真實 Video 串流，設定為鋪滿背景且維持比例 */
 .camera-stream { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
-
-/* 🌟 UI 覆蓋層，設定為相對定位以覆蓋在 Video 之上 */
 .camera-ui-overlay { position: relative; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; z-index: 10; pointer-events: none; }
-.camera-ui-overlay * { pointer-events: auto; } /* 重新開啟子元素的點擊事件 */
-
+.camera-ui-overlay * { pointer-events: auto; }
 .close-scan { position: absolute; top: 30px; right: 25px; color: white; font-size: 24px; text-decoration: none; opacity: 0.8; z-index: 20;}
-
-/* 掃描框 (修正排版使其置中) */
-.scanner-frame { width: 260px; height: 260px; position: relative; box-shadow: 0 0 0 1000px rgba(0,0,0,0.5); border-radius: 24px; transition: border-color 0.3s ease;}
-.scanner-frame.analyzing { border-color: transparent;} /* 正常中 */
-
-.corner { position: absolute; width: 25px; height: 25px; border: 4px solid #bef264; transition: 0.2s;}
-.scanner-frame.analyzing .corner { border-color: #10b981; } /* 辨識成功中 */
-
+.scanner-frame { width: 260px; height: 260px; position: relative; box-shadow: 0 0 0 1000px rgba(0,0,0,0.5); border-radius: 24px; border: 2px solid transparent;}
+.corner { position: absolute; width: 25px; height: 25px; border: 4px solid #10b981; }
 .t-l { top: -2px; left: -2px; border-right: 0; border-bottom: 0; border-radius: 12px 0 0 0; }
 .t-r { top: -2px; right: -2px; border-left: 0; border-bottom: 0; border-radius: 0 12px 0 0; }
 .b-l { bottom: -2px; left: -2px; border-right: 0; border-top: 0; border-radius: 0 0 0 12px; }
 .b-r { bottom: -2px; right: -2px; border-left: 0; border-top: 0; border-radius: 0 0 12px 0; }
 
-.scan-line { position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: #bef264; box-shadow: 0 0 15px #bef264; animation: scanning 3s infinite cubic-bezier(0.4, 0, 0.2, 1); opacity: 0.6; }
-@keyframes scanning { 0% { top: 0%; } 100% { top: 100%; } }
-
-/* 模型載入提示 */
-.model-loading-box { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.7); border-radius: 20px; text-align: center; padding: 20px;}
-
-/* 底部區域 */
-.camera-footer { position: absolute; bottom: 50px; text-align: center; width: 100%; display: flex; flex-direction: column; align-items: center;}
-.instruction { color: rgba(255,255,255,0.8); margin-bottom: 15px; font-weight: 500; font-size: 14px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
-
-/* 即時辨識結果標籤 (浮動感) */
-.realtime-result-label { background: white; color: #111827; padding: 8px 18px; border-radius: 50px; font-weight: 700; font-size: 14px; margin-bottom: 15px; border-bottom: 3px solid #10b981; }
-
+.camera-footer { position: absolute; bottom: 80px; text-align: center; width: 100%; display: flex; flex-direction: column; align-items: center;}
+.instruction { color: rgba(255,255,255,0.8); margin-bottom: 25px; font-weight: 500; font-size: 14px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); padding: 0 20px;}
 .shutter-btn { width: 72px; height: 72px; border-radius: 50%; border: 4px solid white; background: transparent; position: relative; transition: 0.2s;}
 .shutter-btn::after { content: ''; position: absolute; inset: 5px; background: white; border-radius: 50%; transition: 0.2s; }
 .shutter-btn:active { transform: scale(0.9); }
 .shutter-btn:disabled::after { background: #9ca3af; }
-
-.spinner-shutter { position: absolute; inset: 0; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; }
+.spinner-shutter { position: absolute; inset: 0; border: 4px solid rgba(255,255,255,0.3); border-top-color: #10b981; border-radius: 50%; animation: spin 1s linear infinite; z-index: 5;}
 @keyframes spin { 100% { transform: rotate(360deg); } }
 
-/* 結果 Bottom Sheet (復用 Form.vue 的美化風格) */
-.result-sheet { position: fixed; bottom: -100%; left: 0; width: 100%; background: white; border-radius: 28px 28px 0 0; transition: bottom 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28); z-index: 2100;}
+.result-sheet { position: fixed; bottom: -100%; left: 0; width: 100%; background: white; border-radius: 28px 28px 0 0; transition: bottom 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28); z-index: 99999;}
 .result-sheet.active { bottom: 0; }
 .sheet-handle { width: 40px; height: 4px; background: #e5e7eb; border-radius: 2px; margin: 12px auto; }
 .result-body { padding: 0 24px 35px; }
@@ -235,8 +182,17 @@ onUnmounted(() => {
 .res-icon { font-size: 32px; background: #ecfdf5; padding: 12px; border-radius: 16px; }
 .confidence { font-size: 12px; color: #10b981; font-weight: 700; margin-bottom: 4px; }
 .res-name { font-size: 20px; font-weight: 800; margin: 0; color: #111827; }
-.res-desc { line-height: 1.7; color: #4b5563; font-size: 15px; margin-bottom: 25px; }
+
+.res-desc-container { max-height: 40vh; overflow-y: auto; margin-bottom: 20px; padding-right: 5px; }
+.res-desc { line-height: 1.7; color: #4b5563; font-size: 15px; margin: 0; }
+
 .btn-group { display: flex; flex-direction: column; gap: 10px; }
 .btn-learn { width: 100%; background: #111827; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: 700; font-size: 15px; text-align: center; text-decoration: none;}
-.btn-stamp { width: 100%; background: transparent; color: #10b981; border: 2px solid #10b981; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 15px; }
+.bg-success { background: #10b981 !important; color: white !important;}
+</style>
+
+<style>
+body.hide-bottom-nav .bottom-nav {
+  display: none !important;
+}
 </style>
