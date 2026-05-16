@@ -1,149 +1,184 @@
 <template>
-  <div class="home">
-    <div class="top-bar d-flex justify-content-between align-items-center p-3 position-absolute w-100 z-2">
-      
-      <div class="notification-wrapper">
-        <button class="btn btn-light rounded-circle shadow-sm notification-btn" @click="toggleNotifications">
-          <i class="fa-solid fa-bell text-warning fs-5"></i>
-          <span v-if="unreadCount > 0" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light">
-            {{ unreadCount }}
-          </span>
-        </button>
-
-        <div v-if="showNotifications" class="notif-backdrop" @click="showNotifications = false"></div>
-
-        <transition name="fade-slide-up">
-          <div class="notification-dropdown shadow-lg" v-if="showNotifications">
-            <div class="dropdown-header">
-              <span class="fw-bold fs-6 text-dark"><i class="fa-solid fa-bullhorn me-2 text-primary"></i>{{ t.notif }}</span>
-              <div>
-                <span class="text-primary small mark-read-btn me-3" @click.stop="syncOfficialNews" v-if="!isSyncingNews">
-                  <i class="fa-solid fa-rotate me-1"></i>{{ t.aiSync }}
-                </span>
-                <span class="text-primary small me-3" v-else>
-                  <i class="fa-solid fa-spinner fa-spin me-1"></i>{{ t.syncing }}
-                </span>
-                <span class="text-success small mark-read-btn" @click.stop="markAllAsRead">{{ t.markRead }}</span>
-              </div>
-            </div>
-            <div class="dropdown-body">
-              <div v-if="notifications.length === 0" class="text-center p-4 text-muted small">
-                {{ t.noNotif }}
-              </div>
-              <div 
-                v-for="notif in notifications" 
-                :key="notif.id" 
-                class="notif-item" 
-                :class="{'unread': !notif.is_read}"
-                @click="markAsRead(notif)"
-              >
-                <div class="notif-icon">{{ notif.icon }}</div>
-                <div class="notif-content">
-                  <div class="notif-title">{{ notif.title }}</div>
-                  <div class="notif-desc">{{ notif.desc }}</div>
-                  <div class="notif-time">{{ notif.time }}</div>
-                </div>
-                <div v-if="!notif.is_read" class="unread-dot"></div>
-              </div>
-            </div>
-          </div>
-        </transition>
-      </div>
-
-      <div>
-        <button v-if="!userStore.isLoggedIn" class="btn btn-light rounded-pill shadow-sm fw-bold px-4" @click="openAuthModal(false)">
-          <i class="fa-solid fa-user me-2"></i> {{ t.login }}
-        </button>
-        <router-link v-else to="/settings" class="user-chip shadow-sm text-decoration-none">
-          <img :src="`https://ui-avatars.com/api/?name=${userStore.username}&background=10b981&color=fff`" class="avatar-sm" alt="avatar">
-          <span class="ms-2 fw-bold text-dark">{{ userStore.username }}</span>
-        </router-link>
-      </div>
+  <div class="settings-page">
+    <div class="header-nav shadow-sm d-flex align-items-center position-relative">
+      <router-link to="/" class="back-link text-decoration-none text-dark fs-3 fw-bold position-absolute" style="left: 20px; z-index: 10;">←</router-link>
+      <h5 class="fw-bold m-0 text-center w-100">{{ t.sysSet }}</h5>
     </div>
 
-    <header class="hero-section">
-      <div class="container hero-content position-relative z-1">
-        <h1 class="fw-bold">{{ t.title }}</h1>
-        <p>{{ t.subtitle }}</p>
-        <button class="btn-cta border-0" @click="handleFeatureClick('/form')">{{ t.btnStart }}</button>
+    <div class="container py-4 pb-5 mb-5">
+      <div class="profile-card shadow-sm">
+        <div class="avatar-wrap">
+          <img :src="`https://ui-avatars.com/api/?name=${userStore.username || 'Guest'}&background=10b981&color=fff&size=80`" class="avatar-img" alt="avatar" />
+        </div>
+        <div class="profile-info">
+          <h4 class="user-name">{{ userStore.isLoggedIn ? userStore.username : t.visitor }}</h4>
+          <div class="user-level" v-if="userStore.isLoggedIn">
+            <span class="level-badge">{{ displayLevel.icon }} {{ displayLevel.name[sysLang] || displayLevel.name.zh }} ({{ userStore.greenPoints }}pt)</span>
+          </div>
+        </div>
+        <button v-if="userStore.isLoggedIn" class="btn-edit-profile shadow-sm" :class="isEditing ? 'btn-success text-white' : 'btn-outline-secondary bg-white'" @click="toggleEdit">
+          <i class="fa-solid me-1" :class="isEditing ? 'fa-check' : 'fa-pen'"></i>
+          {{ isEditing ? t.saveBtn : t.editBtn }}
+        </button>
       </div>
-    </header>
 
-    <main class="container mb-5 mt-4">
-      <div class="row g-4">
-        <div class="col-6 col-md-3" v-for="item in t.features" :key="item.title">
-          <div class="card feature-card h-100" @click="handleFeatureClick(item.link)" style="cursor: pointer;">
-            <div class="card-body">
-              <span class="feature-icon">{{ item.icon }}</span>
-              <h5 class="feature-card__title">{{ item.title }}</h5>
-              <p class="feature-card__text">{{ item.desc }}</p>
-            </div>
+      <div class="settings-group shadow-sm" v-if="userStore.isLoggedIn">
+        <div class="setting-item action-item text-primary fw-bold" @click="requestPasswordReset">
+          <div class="setting-left">
+            <div class="icon-box bg-blue-light"><i class="fa-solid fa-lock text-blue"></i></div>
+            <span>{{ t.pwdChange }}</span>
+          </div>
+        </div>
+        <div class="p-3 bg-light border-top" v-if="isResetting">
+          <div class="mb-2">
+            <input type="text" v-model="resetForm.otp" class="form-control form-control-sm mb-2 custom-input" :placeholder="t.otpHint" />
+            <input type="password" v-model="resetForm.newPassword" class="form-control form-control-sm custom-input" :placeholder="t.newPwdHint" />
+          </div>
+          <button class="btn btn-success btn-sm w-100 fw-bold rounded-pill" @click="confirmPasswordReset" :disabled="isLoading">
+            {{ isLoading ? t.processing : t.submitBtn }}
+          </button>
+        </div>
+      </div>
+
+      <h6 class="section-title">{{ t.pref }}</h6>
+      <div class="settings-group shadow-sm">
+        <div class="setting-item">
+          <div class="setting-left">
+            <div class="icon-box bg-green-light"><i class="fa-solid fa-utensils text-green"></i></div>
+            <span class="setting-label">{{ t.diet }}</span>
+          </div>
+          <div class="setting-right">
+            <select v-if="isEditing" v-model="editForm.diet" class="form-select form-select-sm border-success">
+              <option v-for="(val, key) in t.dietOpts" :key="key" :value="key">{{ val }}</option>
+            </select>
+            <span v-else class="setting-value fw-bold text-dark">{{ translatePref('diet', userStore.dietPref) }}</span>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-left">
+            <div class="icon-box bg-blue-light"><i class="fa-solid fa-car text-blue"></i></div>
+            <span class="setting-label">{{ t.travel }}</span>
+          </div>
+          <div class="setting-right">
+            <select v-if="isEditing" v-model="editForm.travel" class="form-select form-select-sm border-success">
+              <option v-for="(val, key) in t.travelOpts" :key="key" :value="key">{{ val }}</option>
+            </select>
+            <span v-else class="setting-value fw-bold text-dark">{{ translatePref('travel', userStore.travelPref) }}</span>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-left">
+            <div class="icon-box bg-purple-light"><i class="fa-solid fa-map-location-dot text-purple"></i></div>
+            <span class="setting-label">{{ t.interest }}</span>
+          </div>
+          <div class="setting-right">
+            <select v-if="isEditing" v-model="editForm.interest" class="form-select form-select-sm border-success">
+              <option v-for="(val, key) in t.interestOpts" :key="key" :value="key">{{ val }}</option>
+            </select>
+            <span v-else class="setting-value fw-bold text-dark">{{ translatePref('interest', userStore.interestPref) }}</span>
           </div>
         </div>
       </div>
-    </main>
 
-    <div class="auth-overlay" :class="{ 'active': showAuthModal }">
-      <div class="overlay-backdrop" @click="showAuthModal = false"></div>
-      <div class="auth-card shadow-lg">
-        <div class="text-end mb-2"><button class="btn-close" @click="showAuthModal = false"></button></div>
-        
-        <h4 class="fw-bold mb-4 text-center">
-          {{ isVerifyMode ? t.otpVerify : (isRegisterMode ? t.createAcc : t.welcomeBack) }}
-        </h4>
-        
-        <template v-if="isVerifyMode">
-          <div class="alert alert-success small">{{ t.otpSent }}</div>
-          <div class="mb-4">
-            <label class="form-label text-muted small fw-bold">✉️ {{ t.otpLabel }}</label>
-            <input type="text" v-model="verifyForm.emailOTP" class="form-control custom-input text-center fs-4 letter-spacing-2" placeholder="------" maxlength="6" />
-          </div>
-          <button class="btn-auth w-100 mb-3" @click="submitOTP" :disabled="isLoading">
-            {{ isLoading ? t.processing : t.submitOtp }}
-          </button>
-        </template>
+      <div class="text-center mb-4" v-if="isEditing">
+        <button class="btn btn-success rounded-pill px-5 fw-bold shadow-sm" @click="saveProfile">
+          <i class="fa-solid fa-floppy-disk me-2"></i> {{ t.save }}
+        </button>
+      </div>
 
-        <template v-else>
-          <div class="mb-3">
-            <label class="form-label text-muted small fw-bold">{{ t.acc }}</label>
-            <input type="text" v-model="authForm.username" class="form-control custom-input" placeholder="" />
+      <h6 class="section-title">{{ t.appSet }}</h6>
+      <div class="settings-group shadow-sm">
+        <div class="setting-item">
+          <div class="setting-left">
+            <div class="icon-box bg-yellow-light"><i class="fa-solid fa-bell text-yellow"></i></div>
+            <span class="setting-label">{{ t.push }}</span>
           </div>
-          <div class="mb-3">
-            <label class="form-label text-muted small fw-bold">{{ t.pwd }}</label>
-            <input type="password" v-model="authForm.password" class="form-control custom-input" placeholder="" />
-          </div>
-
-          <template v-if="isRegisterMode">
-            <div class="mb-3">
-              <label class="form-label text-muted small fw-bold">✉️ Email</label>
-              <input type="email" v-model="authForm.email" class="form-control custom-input" placeholder="example@gmail.com" />
+          <div class="setting-right">
+            <div class="form-check form-switch m-0">
+              <input class="form-check-input custom-switch" type="checkbox" v-model="pushEnabled" @change="togglePush" />
             </div>
-            <div class="row">
-              <div class="col-6 mb-4">
-                <label class="form-label text-muted small fw-bold">{{ t.dietL }}</label>
-                <select v-model="authForm.dietPref" class="form-select custom-input">
-                  <option>無限制</option><option>全素食</option><option>蛋奶素</option><option>無麩質</option><option>不吃牛</option>
-                </select>
-              </div>
-              <div class="col-6 mb-4">
-                <label class="form-label text-muted small fw-bold">{{ t.travelL }}</label>
-                <select v-model="authForm.travelPref" class="form-select custom-input">
-                  <option>大眾運輸 + 步行</option><option>自行開車</option><option>機車機動</option><option>低碳自行車</option>
-                </select>
-              </div>
-            </div>
-          </template>
-
-          <button class="btn-auth w-100 mb-3" @click="handleAuth" :disabled="isLoading">
-            {{ isLoading ? t.processing : (isRegisterMode ? t.regBtn : t.logBtn) }}
-          </button>
-          <div class="text-center text-muted small">
-            {{ isRegisterMode ? t.hasAcc : t.noAcc }}
-            <a href="#" class="text-success fw-bold text-decoration-none" @click.prevent="isRegisterMode = !isRegisterMode">
-              {{ isRegisterMode ? t.switchLog : t.switchReg }}
-            </a>
           </div>
-        </template>
+        </div>
+        
+        <div class="setting-item">
+          <div class="setting-left">
+            <div class="icon-box bg-gray-light"><i class="fa-solid fa-globe text-gray"></i></div>
+            <span class="setting-label">{{ t.lang }}</span>
+          </div>
+          <div class="setting-right">
+            <select v-if="currentVersion === 'v1.5.0'" v-model="systemLanguage" @change="changeLanguage" class="form-select form-select-sm border-secondary fw-bold text-dark" style="width: auto; cursor: pointer;">
+              <option value="zh">🇹🇼 繁體中文</option>
+              <option value="en">🇺🇸 English</option>
+              <option value="ja">🇯🇵 日本語</option>
+              <option value="ko">🇰🇷 한국어</option>
+            </select>
+            <div v-else @click="alertLangUpdate" style="cursor: pointer; display: flex; align-items: center;">
+              <span class="setting-value">{{ t.langValue }}</span>
+              <i class="fa-solid fa-lock text-muted ms-2" style="font-size: 12px;"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="setting-item" @click="checkForUpdate">
+          <div class="setting-left">
+            <div class="icon-box bg-red-light"><i class="fa-solid fa-arrows-rotate text-red"></i></div>
+            <span class="setting-label">{{ t.update }}</span>
+          </div>
+          <div class="setting-right">
+            <span class="setting-value">{{ t.curVer }} {{ currentVersion }}</span>
+            <span v-if="hasUpdate" class="badge bg-danger ms-2 rounded-pill shadow-sm" style="font-size:10px">1</span>
+            <i class="fa-solid fa-chevron-right arrow-icon ms-2"></i>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-group shadow-sm mt-4" v-if="userStore.isLoggedIn">
+        <div class="setting-item action-item text-danger justify-content-center fw-bold" @click="handleLogout">
+          <i class="fa-solid fa-arrow-right-from-bracket me-2"></i> {{ t.logout }}
+        </div>
+      </div>
+      
+      <div class="text-center text-muted small mt-4 pb-4 opacity-75">© 2026 山城 AI 智慧旅伴專案小組 | {{ t.curVer }} {{ currentVersion }}</div>
+    </div>
+
+    <div class="update-overlay" :class="{ 'active': showUpdateModal }">
+      <div class="update-backdrop" @click="closeUpdateModal"></div>
+      <div class="update-card shadow-lg">
+        <div class="update-icon-wrap">
+          <i class="fa-brands fa-apple fs-1 text-dark" v-if="updateState !== 'downloading' && updateState !== 'ready'"></i>
+          <i class="fa-solid fa-cloud-arrow-down fs-1 text-primary" v-if="updateState === 'downloading'"></i>
+          <i class="fa-solid fa-circle-check fs-1 text-success" v-if="updateState === 'ready'"></i>
+        </div>
+        <h4 class="fw-bold mb-2">Software Update</h4>
+        <div class="update-content">
+          <div v-if="updateState === 'up-to-date'" class="text-muted d-flex flex-column align-items-center gap-2 my-4">
+            <p class="fw-bold text-dark mb-0">山城 AI 旅伴 {{ currentVersion }}</p>
+            <p class="small">{{ t.upToDate }}</p>
+          </div>
+          <div v-if="updateState === 'checking'" class="text-muted d-flex flex-column align-items-center gap-3 my-4">
+            <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+            {{ t.checking }}
+          </div>
+          <div v-if="updateState === 'available' && nextUpdateInfo" class="text-start my-3 p-3 bg-light rounded-3">
+            <div class="d-flex justify-content-between align-items-end mb-2">
+              <span class="fw-bold fs-5">山城 AI 旅伴 {{ nextUpdateInfo.version }}</span>
+              <span class="text-muted small">24.5 MB</span>
+            </div>
+            <p class="text-muted small mb-0 lh-lg">
+              {{ t.updateContains }}<br>
+              <span v-for="(feature, idx) in nextUpdateInfo.features" :key="idx">• {{ feature }}<br></span>
+            </p>
+          </div>
+          <div v-if="updateState === 'downloading'" class="my-4">
+            <div class="d-flex justify-content-between text-muted small mb-2 fw-bold"><span>{{ t.downloading }}</span><span>{{ downloadProgress }}%</span></div>
+            <div class="progress" style="height: 8px;"><div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" :style="{ width: downloadProgress + '%' }"></div></div>
+          </div>
+          <div v-if="updateState === 'ready'" class="my-4 text-success fw-bold">{{ t.installReady }}</div>
+        </div>
+        <div class="update-actions mt-4">
+          <button v-if="updateState === 'available'" class="btn-update-primary w-100" @click="startDownload">{{ t.btnDownload }}</button>
+          <button v-if="updateState === 'checking' || updateState === 'available' || updateState === 'up-to-date'" class="btn-update-secondary w-100 mt-2" @click="closeUpdateModal">{{ t.btnClose }}</button>
+        </div>
       </div>
     </div>
   </div>
@@ -152,208 +187,226 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useUserStore } from '../stores/userStore';
-import { useRouter } from 'vue-router'; 
+import { useRouter } from 'vue-router';
 
 const userStore = useUserStore();
 const router = useRouter();
-const NGROK_BASE_URL = "https://demystify-primary-correct.ngrok-free.dev";
 
-// 🌟 四國語言即時翻譯字典
+const NGROK_BASE_URL = "https://demystify-primary-correct.ngrok-free.dev";
+const isEditing = ref(false);
+const pushEnabled = ref(true);
+const editForm = ref({ diet: '', travel: '', interest: '' });
+
+const isResetting = ref(false);
+const isLoading = ref(false);
+const resetForm = ref({ otp: '', newPassword: '' });
+
+const APP_VERSIONS = [
+  { version: 'v1.3.0', features: ['優化 AI 行程推薦引擎', '新增官方即時爬蟲同步功能'] },
+  { version: 'v1.4.0', features: ['🗺️ 支援離線地圖導航功能', '🌐 新增語音導覽多國語系 (日、韓)', '⚡ 大幅提升 AI 辨識速度'] },
+  { version: 'v1.5.0', features: ['🌐 系統介面多國語言切換 (支援中/英/日/韓)', '🛠️ 介面優化與系統穩定性提升', '🔐 增強使用者資料安全防護'] }
+];
+
+const currentVersion = ref('');
+const hasUpdate = ref(false);
+const nextUpdateInfo = ref(null);
+const showUpdateModal = ref(false);
+const updateState = ref('idle'); 
+const downloadProgress = ref(0);
+
 const sysLang = ref(localStorage.getItem('shancheng_sys_lang') || 'zh');
+const systemLanguage = ref(sysLang.value);
+
 const t = computed(() => {
   const dict = {
-    zh: { 
-      title: "今天想去哪裡探索山城？", subtitle: "專屬你的 AI 行程與智慧導覽", btnStart: "開始 AI 行程推薦", 
-      notif: "官方公告", aiSync: "AI 同步", syncing: "同步中...", markRead: "全部已讀", noNotif: "目前沒有新通知喔！", login: "登入 / 註冊", 
-      otpVerify: "信箱驗證 (OTP)", createAcc: "建立專屬帳號", welcomeBack: "歡迎回到山城", otpSent: "驗證碼已發送至您的信箱，請查看。", 
-      otpLabel: "信箱驗證碼 (6碼)", processing: "處理中...", submitOtp: "送出驗證", acc: "帳號", pwd: "密碼", dietL: "飲食偏好", 
-      travelL: "交通偏好", regBtn: "發送註冊驗證碼", logBtn: "登入", hasAcc: "已經有帳號了？", noAcc: "還沒有帳號？", switchLog: "切換登入", switchReg: "點此註冊", 
-      features: [
-        { title: 'AI 行程推薦', desc: '客製化旅遊路線', icon: '🗺️', link: '/form' }, 
-        { title: '智慧景點導覽', desc: '多國語音故事', icon: '🎧', link: '/guide' }, 
-        { title: 'AI 山城萬物鏡', desc: '山城圖鑑收集', icon: '📷', link: '/scan' }, 
-        { title: '集章綠色任務', desc: '完成獲得優惠券', icon: '🏅', link: '/mission' }
-      ] 
+    zh: {
+      sysSet: '系統設定', visitor: '訪客 (請先登入)', pwdChange: '變更密碼 (Email 驗證)', pref: '旅遊與偏好 (AI 推薦參考)', 
+      diet: '飲食偏好', travel: '預設交通方式', interest: '旅遊主題', save: '儲存變更', appSet: '應用程式設定', 
+      push: '推播通知', lang: '系統語言切換', update: '系統更新', logout: '登出帳號', curVer: '目前版本',
+      editBtn: '編輯資料', saveBtn: '儲存', otpHint: '輸入 6 碼驗證碼', newPwdHint: '新密碼 (8-20碼英數)', submitBtn: '確認重設', processing: '處理中...',
+      upToDate: '您的系統已是最新版本。', checking: '正在檢查更新項目...', updateContains: '此更新項目包含：', downloading: '正在下載...', installReady: '下載完成！正在重新啟動系統...', btnDownload: '下載並安裝', btnClose: '關閉', notSet: '尚未設定', langValue: '繁體中文',
+      dietOpts: { '無限制': '無限制', '全素食': '全素食', '蛋奶素': '蛋奶素', '無麩質': '無麩質', '不吃牛': '不吃牛' },
+      travelOpts: { '大眾運輸 + 步行': '大眾運輸 + 步行', '自行開車': '自行開車', '機車機動': '機車機動', '低碳自行車': '低碳自行車' },
+      interestOpts: { '美食饗宴': '美食饗宴', '文化歷史': '文化歷史', '自然生態': '自然生態', '體驗式旅行': '體驗式旅行' }
     },
-    en: { 
-      title: "Where to explore today?", subtitle: "Your AI Trip & Smart Guide", btnStart: "Start AI Trip Planner", 
-      notif: "Official News", aiSync: "AI Sync", syncing: "Syncing...", markRead: "Mark Read", noNotif: "No new notifications!", login: "Login / Sign Up", 
-      otpVerify: "Email Verification (OTP)", createAcc: "Create Account", welcomeBack: "Welcome Back", otpSent: "Verification code sent to your email.", 
-      otpLabel: "OTP Code (6 digits)", processing: "Processing...", submitOtp: "Verify", acc: "Username", pwd: "Password", dietL: "Diet", 
-      travelL: "Transport", regBtn: "Send OTP Code", logBtn: "Login", hasAcc: "Already have an account?", noAcc: "Don't have an account?", switchLog: "Login Here", switchReg: "Sign Up", 
-      features: [
-        { title: 'AI Trip Planner', desc: 'Customized Routes', icon: '🗺️', link: '/form' }, 
-        { title: 'Smart Audio Guide', desc: 'Multilingual Stories', icon: '🎧', link: '/guide' }, 
-        { title: 'AI Nature Lens', desc: 'Flora & Fauna Dex', icon: '📷', link: '/scan' }, 
-        { title: 'Green Missions', desc: 'Earn Rewards', icon: '🏅', link: '/mission' }
-      ] 
+    en: {
+      sysSet: 'Settings', visitor: 'Guest (Login Required)', pwdChange: 'Change Password', pref: 'Travel Preferences', 
+      diet: 'Dietary Needs', travel: 'Transport', interest: 'Main Interest', save: 'Save Changes', appSet: 'App Settings', 
+      push: 'Notifications', lang: 'System Language', update: 'System Update', logout: 'Logout', curVer: 'Version',
+      editBtn: 'Edit Info', saveBtn: 'Save', otpHint: 'OTP (6 digits)', newPwdHint: 'New Password', submitBtn: 'Reset', processing: 'Processing...',
+      upToDate: 'System is up to date.', checking: 'Checking...', updateContains: 'Updates:', downloading: 'Downloading...', installReady: 'Done! Restarting...', btnDownload: 'Install', btnClose: 'Close', notSet: 'Not set', langValue: 'English',
+      dietOpts: { '無限制': 'No Limit', '全素食': 'Vegan', '蛋奶素': 'Vegetarian', '無麩質': 'Gluten-Free', '不吃牛': 'No Beef' },
+      travelOpts: { '大眾運輸 + 步行': 'Public Transit', '自行開車': 'Drive Car', '機車機動': 'Scooter', '低碳自行車': 'Eco Bike' },
+      interestOpts: { '美食饗宴': 'Foodie', '文化歷史': 'Culture', '自然生態': 'Nature', '體驗式旅行': 'Experience' }
     },
-    ja: { 
-      title: "今日はどこへ探検しますか？", subtitle: "あなた専用のAI旅行＆スマートガイド", btnStart: "AI旅行プランナーを開始", 
-      notif: "公式お知らせ", aiSync: "AI 同期", syncing: "同期中...", markRead: "既読にする", noNotif: "新しい通知はありません！", login: "ログイン / 登録", 
-      otpVerify: "メール認証 (OTP)", createAcc: "アカウント作成", welcomeBack: "お帰りなさい", otpSent: "認証コードをメールに送信しました。", 
-      otpLabel: "認証コード (6桁)", processing: "処理中...", submitOtp: "認証する", acc: "ユーザー名", pwd: "パスワード", dietL: "食事", 
-      travelL: "交通手段", regBtn: "認証コードを送信", logBtn: "ログイン", hasAcc: "アカウントをお持ちですか？", noAcc: "アカウントがありませんか？", switchLog: "ログイン", switchReg: "登録", 
-      features: [
-        { title: 'AI 旅行プラン', desc: 'カスタムルート', icon: '🗺️', link: '/form' }, 
-        { title: 'スマート音声ガイド', desc: '多言語のストーリー', icon: '🎧', link: '/guide' }, 
-        { title: 'AI ネイチャー図鑑', desc: '動植物図鑑', icon: '📷', link: '/scan' }, 
-        { title: 'グリーンミッション', desc: '報酬を獲得', icon: '🏅', link: '/mission' }
-      ] 
+    ja: {
+      sysSet: 'システム設定', visitor: 'ゲスト (要ログイン)', pwdChange: 'パスワード変更', pref: '旅行の好み', 
+      diet: '食事制限', travel: '移動手段', interest: 'テーマ', save: '変更を保存', appSet: 'アプリ設定', 
+      push: '通知設定', lang: '言語設定', update: 'システム更新', logout: 'ログアウト', curVer: 'バージョン',
+      editBtn: 'プロフィール編集', saveBtn: '保存', otpHint: '認証コード(6桁)', newPwdHint: '新しいパスワード', submitBtn: 'リセット', processing: '処理中...',
+      upToDate: '最新バージョンです。', checking: '確認中...', updateContains: '更新内容：', downloading: 'ダウンロード中...', installReady: '完了！再起動中...', btnDownload: '更新する', btnClose: '閉じる', notSet: '未設定', langValue: '日本語',
+      dietOpts: { '無限制': '制限なし', '全素食': 'ヴィーガン', '蛋奶素': 'ベジタリアン', '無麩質': 'グルテンフリー', '不吃牛': '牛肉不可' },
+      travelOpts: { '大眾運輸 + 步行': '公共交通と徒歩', '自行開車': '車', '機車機動': 'バイク', '低碳自行車': 'エコ自転車' },
+      interestOpts: { '美食饗宴': 'グルメ', '文化歷史': '歴史文化', '自然生態': '自然生態', '體驗式旅行': '体験型旅行' }
     },
-    ko: { 
-      title: "오늘 어디로 탐험할까요?", subtitle: "당신만의 AI 여행 및 스마트 가이드", btnStart: "AI 여행 계획 시작", 
-      notif: "공지사항", aiSync: "AI 동기화", syncing: "동기화 중...", markRead: "모두 읽음", noNotif: "새로운 알림이 없습니다!", login: "로그인 / 가입", 
-      otpVerify: "이메일 인증 (OTP)", createAcc: "계정 만들기", welcomeBack: "환영합니다", otpSent: "인증 코드가 이메일로 발송되었습니다.", 
-      otpLabel: "인증 코드 (6자리)", processing: "처리 중...", submitOtp: "인증하기", acc: "아이디", pwd: "비밀번호", dietL: "식단", 
-      travelL: "교통", regBtn: "인증 코드 전송", logBtn: "로그인", hasAcc: "이미 계정이 있으신가요?", noAcc: "계정이 없으신가요?", switchLog: "로그인", switchReg: "가입하기", 
-      features: [
-        { title: 'AI 여행 플래너', desc: '맞춤형 경로', icon: '🗺️', link: '/form' }, 
-        { title: '스마트 음성 가이드', desc: '다국어 스토리', icon: '🎧', link: '/guide' }, 
-        { title: 'AI 자연 렌즈', desc: '도감', icon: '📷', link: '/scan' }, 
-        { title: '그린 미션', desc: '보상 획득', icon: '🏅', link: '/mission' }
-      ] 
+    ko: {
+      sysSet: '시스템 설정', visitor: '게스트 (로그인 필요)', pwdChange: '비밀번호 변경', pref: '여행 취향', 
+      diet: '식단 선호', travel: '교통 수단', interest: '여행 테마', save: '저장하기', appSet: '앱 설정', 
+      push: '푸시 알림', lang: '언어 설정', update: '시스템 업데이트', logout: '로그아웃', curVer: '현재 버전',
+      editBtn: '정보 수정', saveBtn: '저장', otpHint: '인증번호 6자리', newPwdHint: '새 비밀번호', submitBtn: '확인', processing: '처리 중...',
+      upToDate: '최신 버전입니다.', checking: '확인 중...', updateContains: '업데이트 내용:', downloading: '다운로드 중...', installReady: '완료! 재시작 중...', btnDownload: '설치하기', btnClose: '닫기', notSet: '미설정', langValue: '한국어',
+      dietOpts: { '無限制': '제한 없음', '全素食': '비건', '蛋奶素': '베지테리언', '無麩質': '글루텐 프리', '不吃牛': '소고기 안 먹음' },
+      travelOpts: { '大眾運輸 + 步行': '대중교통 및 도보', '自行開車': '자가용', '機車機動': '오토바이', '低碳自行車': '에코 자전거' },
+      interestOpts: { '美食饗宴': '맛집 탐방', '文化歷史': '역사 문화', '自然生態': '자연 생태', '體驗式旅行': '체험 여행' }
     }
   };
-  return dict[sysLang.value] || dict.zh;
+  return dict[systemLanguage.value] || dict.zh;
 });
 
-const showAuthModal = ref(false);
-const isRegisterMode = ref(false);
-const isVerifyMode = ref(false);
-const isLoading = ref(false);
-
-const authForm = ref({ username: '', password: '', email: '', dietPref: '無限制', travelPref: '大眾運輸 + 步行' });
-const verifyForm = ref({ emailOTP: '' });
-
-const showNotifications = ref(false);
-const notifications = ref([]);
-const isSyncingNews = ref(false); 
-
-const unreadCount = computed(() => notifications.value.filter(n => !n.is_read).length);
-
-const fetchNotifications = async () => {
-  if (!userStore.isLoggedIn) return;
-  try {
-    const res = await fetch(`${NGROK_BASE_URL}/api/notifications?username=${userStore.username}`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
-    const result = await res.json();
-    if (result.status === 'success') { notifications.value = result.data; }
-  } catch (err) {}
+const translatePref = (type, value) => {
+  if (!value) return t.value.notSet;
+  const opts = t.value[`${type}Opts`];
+  return opts[value] || value;
 };
 
-const syncOfficialNews = async () => {
-  isSyncingNews.value = true;
+const levels = [
+  { name: { zh: '初階山城旅人', en: 'Beginner', ja: '初心者トラベラー', ko: '초보 여행자' }, icon: '🌱' },
+  { name: { zh: '中階山城旅人', en: 'Intermediate', ja: '中級トラベラー', ko: '중급 여행자' }, icon: '🌿' },
+  { name: { zh: '高階永續大使', en: 'Ambassador', ja: '上級アンバサダー', ko: '고급 앰배서더' }, icon: '🌳' }
+];
+
+const displayLevel = computed(() => {
+  if (userStore.greenPoints >= 1500) return levels[2];
+  if (userStore.greenPoints >= 500) return levels[1];
+  return levels[0];
+});
+
+onMounted(() => {
+  userStore.restoreSession();
+  if (userStore.isLoggedIn) {
+    editForm.value.diet = userStore.dietPref || '無限制';
+    editForm.value.travel = userStore.travelPref || '大眾運輸 + 步行';
+    editForm.value.interest = userStore.interestPref || '自然生態';
+  }
+  const savedVersion = localStorage.getItem('shancheng_app_version') || 'v1.3.0';
+  currentVersion.value = savedVersion;
+  const vIndex = APP_VERSIONS.findIndex(v => v.version === savedVersion);
+  if (vIndex >= 0 && vIndex < APP_VERSIONS.length - 1) {
+    hasUpdate.value = true;
+    nextUpdateInfo.value = APP_VERSIONS[vIndex + 1];
+  }
+});
+
+const toggleEdit = () => {
+  if (isEditing.value) { saveProfile(); } else {
+    isEditing.value = true;
+    editForm.value.diet = userStore.dietPref || '無限制';
+    editForm.value.travel = userStore.travelPref || '大眾運輸 + 步行';
+    editForm.value.interest = userStore.interestPref || '自然生態';
+  }
+};
+
+const saveProfile = async () => {
   try {
-    const res = await fetch(`${NGROK_BASE_URL}/api/notifications/sync`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' }, body: JSON.stringify({ username: userStore.username }) });
+    const res = await fetch(`${NGROK_BASE_URL}/api/update_profile`, { 
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' }, 
+      body: JSON.stringify({ username: userStore.username, diet_pref: editForm.value.diet, travel_pref: editForm.value.travel, interest_pref: editForm.value.interest }) 
+    });
     const result = await res.json();
     if (result.status === 'success') {
-      if (result.added > 0) alert(`✅ AI 爬蟲成功萃取 ${result.added} 則最新官方活動！`); else alert(`👍 目前官方活動都已是最新狀態囉！`);
-      fetchNotifications(); 
+      userStore.updateProfile(editForm.value.diet, editForm.value.travel, editForm.value.interest);
+      isEditing.value = false; alert(systemLanguage.value === 'zh' ? "✅ 儲存成功！" : "✅ Saved!");
     }
-  } catch (err) { alert("同步失敗，請確認後端是否啟動。"); } finally { isSyncingNews.value = false; }
+  } catch (err) { alert("Error"); }
 };
 
-const markAsRead = async (notif) => {
-  if (notif.is_read) return;
-  notif.is_read = true; 
-  try { await fetch(`${NGROK_BASE_URL}/api/notifications/read`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' }, body: JSON.stringify({ username: userStore.username, notif_id: notif.id }) }); } catch (err) {}
+const changeLanguage = () => { localStorage.setItem('shancheng_sys_lang', systemLanguage.value); window.location.reload(); };
+const alertLangUpdate = () => { alert("🔒 v1.5.0 Required"); };
+const togglePush = () => { alert("🔔 Notifications Updated"); };
+
+const checkForUpdate = () => {
+  showUpdateModal.value = true;
+  if (!hasUpdate.value) { updateState.value = 'up-to-date'; return; }
+  updateState.value = 'checking'; downloadProgress.value = 0;
+  setTimeout(() => { updateState.value = 'available'; }, 1500);
 };
 
-const markAllAsRead = async () => {
-  notifications.value.forEach(n => n.is_read = true);
-  try { await fetch(`${NGROK_BASE_URL}/api/notifications/read`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' }, body: JSON.stringify({ username: userStore.username }) }); } catch (err) {}
-};
-
-const toggleNotifications = () => { 
-  if (!userStore.isLoggedIn) { alert("🔒 請先登入才能查看專屬官方通知喔！"); openAuthModal(false); return; }
-  showNotifications.value = !showNotifications.value; 
-  if (showNotifications.value) fetchNotifications(); 
-};
-
-onMounted(() => { 
-  userStore.restoreSession(); 
-  if (userStore.isLoggedIn) fetchNotifications(); 
-});
-
-const handleFeatureClick = (link) => {
-  if (!userStore.isLoggedIn) { alert("🔒 請先「註冊」或「登入」會員，才能解鎖完整的山城 AI 專屬功能喔！"); openAuthModal(false); } else { router.push(link); }
-};
-
-const openAuthModal = (isReg = false) => { isRegisterMode.value = isReg; isVerifyMode.value = false; showAuthModal.value = true; };
-
-const handleAuth = async () => {
-  if (!authForm.value.username || !authForm.value.password) return alert("請填寫帳號與密碼！");
-  if (isRegisterMode.value) {
-    const pwd = authForm.value.password;
-    if (pwd.length < 8 || pwd.length > 20 || !/[a-zA-Z]/.test(pwd) || !/[0-9]/.test(pwd)) { return alert("密碼必須介於 8 到 20 碼之間，且包含英文與數字！"); }
-    if (!authForm.value.email) return alert("信箱必填！");
-  }
-  isLoading.value = true;
-  try {
-    if (isRegisterMode.value) {
-      const res = await fetch(`${NGROK_BASE_URL}/api/register`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' }, body: JSON.stringify({ username: authForm.value.username, password: authForm.value.password, email: authForm.value.email, diet_pref: authForm.value.dietPref, travel_pref: authForm.value.travelPref }) });
-      const result = await res.json();
-      if (result.status === 'success') { alert("✅ 註冊成功，請輸入驗證碼。"); isVerifyMode.value = true; } else { alert(result.message); }
-    } else {
-      const res = await fetch(`${NGROK_BASE_URL}/api/login`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' }, body: JSON.stringify({ username: authForm.value.username, password: authForm.value.password }) });
-      const result = await res.json();
-      if (result.status === 'success') { userStore.login(result.data); showAuthModal.value = false; fetchNotifications(); } else { alert(result.message); }
+const startDownload = () => {
+  updateState.value = 'downloading'; let progress = 0;
+  const interval = setInterval(() => {
+    progress += Math.floor(Math.random() * 15) + 5; 
+    if (progress >= 100) {
+      progress = 100; clearInterval(interval); updateState.value = 'ready';
+      setTimeout(() => { localStorage.setItem('shancheng_app_version', nextUpdateInfo.value.version); window.location.reload(true); }, 1500);
     }
-  } catch (e) { alert("連線失敗"); } finally { isLoading.value = false; }
+    downloadProgress.value = progress;
+  }, 400); 
 };
 
-const submitOTP = async () => {
-  isLoading.value = true;
+const closeUpdateModal = () => {
+  if (updateState.value === 'downloading' || updateState.value === 'ready') return;
+  showUpdateModal.value = false; setTimeout(() => { updateState.value = 'idle'; }, 300);
+};
+
+const requestPasswordReset = async () => {
+  if (isResetting.value) return (isResetting.value = false);
   try {
-    const res = await fetch(`${NGROK_BASE_URL}/api/verify_register`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' }, body: JSON.stringify({ username: authForm.value.username, email_otp: verifyForm.value.emailOTP }) });
+    const res = await fetch(`${NGROK_BASE_URL}/api/request_password_reset`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' }, body: JSON.stringify({ username: userStore.username }) });
     const result = await res.json();
-    if (result.status === 'success') { alert(result.message); isVerifyMode.value = false; isRegisterMode.value = false; } else { alert(result.message); }
-  } catch (e) { alert("連線失敗"); } finally { isLoading.value = false; }
+    if (result.status === 'success') { isResetting.value = true; }
+  } catch (e) {}
 };
+
+const confirmPasswordReset = async () => {
+  if (!resetForm.value.otp || !resetForm.value.newPassword) return;
+  isLoading.value = true;
+  try {
+    const res = await fetch(`${NGROK_BASE_URL}/api/reset_password`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' }, body: JSON.stringify({ username: userStore.username, otp: resetForm.value.otp, new_password: resetForm.value.newPassword }) });
+    const result = await res.json();
+    if (result.status === 'success') { isResetting.value = false; alert("Success"); }
+  } catch (e) {} finally { isLoading.value = false; }
+};
+
+const handleLogout = () => { if (confirm("Logout?")) { userStore.logout(); router.push('/'); } };
 </script>
 
 <style scoped>
-.hero-section { min-height: 45vh; background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.6)), url('/images/lugu_ginkgo.jpg') no-repeat center center; background-size: cover; color: white; text-align: center; display: flex; align-items: center; justify-content: center; border-radius: 0 0 20px 20px; }
-.hero-content h1 { font-size: 2.5rem; margin-bottom: 15px; }
-.btn-cta { background-color: #10b981; color: white; padding: 12px 40px; border-radius: 50px; display: inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: all 0.2s; text-decoration: none;}
-.btn-cta:hover { transform: translateY(-2px); background-color: #059669; }
-.feature-card { border: none; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); text-align: center; transition: all 0.2s; }
-.feature-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
-.feature-card .card-body { padding: 30px 20px; }
-.feature-icon { font-size: 32px; color: #10b981; display: block; margin-bottom: 15px;}
-.feature-card__title { font-weight: bold; margin-bottom: 5px; }
-.feature-card__text { color: #666; font-size: 0.9rem; margin-bottom: 0; }
-.user-chip { background: white; border-radius: 50px; padding: 5px 15px 5px 5px; display: inline-flex; align-items: center; cursor: pointer; }
-.avatar-sm { width: 32px; height: 32px; border-radius: 50%; }
-.auth-overlay { position: fixed; inset: 0; z-index: 9999; display: none; align-items: center; justify-content: center; }
-.auth-overlay.active { display: flex; }
-.overlay-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
-.auth-card { position: relative; background: white; width: 90%; max-width: 400px; border-radius: 24px; padding: 30px; z-index: 10; animation: scaleUp 0.3s ease; }
-.custom-input { border-radius: 12px; padding: 12px 15px; border: 1px solid #e5e7eb; background: #f9fafb; }
-.custom-input:focus { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1); outline: none; }
-.letter-spacing-2 { letter-spacing: 5px; }
-.btn-auth { background: #10b981; color: white; border: none; border-radius: 12px; padding: 14px; font-weight: 800; transition: 0.2s; }
-.btn-auth:active { transform: scale(0.98); }
-@keyframes scaleUp { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-.notification-wrapper { position: relative; z-index: 1000; }
-.notification-btn { width: 42px; height: 42px; display: flex; justify-content: center; align-items: center; position: relative; border: none; }
-.notif-backdrop { position: fixed; inset: 0; z-index: 998; }
-.notification-dropdown { position: absolute; top: 55px; left: 0; width: 320px; background: white; border-radius: 16px; overflow: hidden; z-index: 1000; transform-origin: top left; }
-@media (max-width: 576px) { .notification-dropdown { width: 280px; } }
-.dropdown-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid #f1f5f9; background: #f8fafc; }
-.mark-read-btn { cursor: pointer; font-weight: 700; transition: 0.2s; }
-.mark-read-btn:active { transform: scale(0.95); }
-.dropdown-body { max-height: 350px; overflow-y: auto; }
-.notif-item { display: flex; align-items: flex-start; gap: 14px; padding: 16px 20px; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: 0.2s; position: relative; }
-.notif-item:last-child { border-bottom: none; }
-.notif-item:active { background: #f8fafc; }
-.notif-item.unread { background: #f0fdf4; }
-.notif-icon { font-size: 24px; }
-.notif-content { flex: 1; text-align: left; }
-.notif-title { font-size: 14px; font-weight: 800; color: #1e293b; margin-bottom: 5px; line-height: 1.4; }
-.notif-desc { font-size: 13px; color: #64748b; line-height: 1.5; margin-bottom: 6px; }
-.notif-time { font-size: 11px; color: #94a3b8; font-weight: 600; }
-.unread-dot { width: 8px; height: 8px; background: #ef4444; border-radius: 50%; position: absolute; right: 20px; top: 20px; }
-.fade-slide-up-enter-active, .fade-slide-up-leave-active { transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
-.fade-slide-up-enter-from, .fade-slide-up-leave-to { opacity: 0; transform: translateY(-10px) scale(0.95); }
+.settings-page { background-color: #f3f4f6; min-height: 100vh; }
+.header-nav { background: white; padding: 18px; }
+.profile-card { background: white; border-radius: 20px; padding: 25px 20px; display: flex; align-items: center; gap: 15px; margin-bottom: 30px; position: relative; }
+.avatar-img { width: 70px; height: 70px; border-radius: 50%; border: 3px solid #ecfdf5; }
+.profile-info { flex-grow: 1; }
+.user-name { font-size: 18px; font-weight: 800; color: #1f2937; margin-bottom: 5px; }
+.level-badge { background: #ecfdf5; color: #10b981; padding: 4px 10px; border-radius: 50px; font-size: 11px; font-weight: 700; }
+
+.btn-edit-profile { position: absolute; top: 15px; right: 15px; border-radius: 50px; padding: 6px 14px; font-size: 13px; font-weight: 700; border: 1px solid #e5e7eb; transition: 0.2s; }
+.btn-edit-profile:active { transform: scale(0.95); }
+
+.section-title { font-size: 13px; font-weight: 700; color: #6b7280; margin: 0 0 10px 15px; text-transform: uppercase; }
+.settings-group { background: white; border-radius: 20px; margin-bottom: 25px; overflow: hidden; }
+.setting-item { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #f3f4f6; cursor:pointer;}
+.setting-left { display: flex; align-items: center; gap: 12px; }
+.icon-box { width: 34px; height: 34px; border-radius: 10px; display: flex; justify-content: center; align-items: center; font-size: 14px; }
+.setting-label { font-size: 15px; font-weight: 600; color: #374151; }
+.setting-right { display: flex; align-items: center; gap: 10px; }
+.setting-value { font-size: 14px; color: #6b7280; font-weight: 500; }
+
+.custom-switch:checked { background-color: #10b981; border-color: #10b981; }
+.custom-input { border-radius: 10px; }
+
+.bg-green-light { background-color: #ecfdf5; } .text-green { color: #10b981; }
+.bg-blue-light { background-color: #eff6ff; } .text-blue { color: #3b82f6; }
+.bg-yellow-light { background-color: #fefce8; } .text-yellow { color: #eab308; }
+.bg-gray-light { background-color: #f3f4f6; } .text-gray { color: #6b7280; }
+.bg-purple-light { background-color: #faf5ff; } .text-purple { color: #a855f7; }
+.bg-red-light { background-color: #fef2f2; } .text-red { color: #ef4444; }
+
+.update-overlay { position: fixed; inset: 0; z-index: 9999; display: none; align-items: center; justify-content: center; padding: 20px; }
+.update-overlay.active { display: flex; }
+.update-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); }
+.update-card { position: relative; background: white; width: 100%; max-width: 340px; border-radius: 20px; padding: 30px 20px; text-align: center; z-index: 10; animation: popUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.update-icon-wrap { width: 60px; height: 60px; background: #f3f4f6; border-radius: 16px; display: flex; justify-content: center; align-items: center; margin: 0 auto 15px; }
+.btn-update-primary { background: #007aff; color: white; border: none; padding: 12px; border-radius: 12px; font-weight: 700; font-size: 15px; }
+.btn-update-secondary { background: transparent; color: #007aff; border: none; padding: 12px; border-radius: 12px; font-weight: 600; font-size: 15px; }
+@keyframes popUp { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
 </style>
