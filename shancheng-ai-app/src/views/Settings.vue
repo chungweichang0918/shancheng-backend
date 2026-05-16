@@ -54,7 +54,6 @@
             <span v-else class="setting-value fw-bold text-dark">{{ translatePref('diet', userStore.dietPref) }}</span>
           </div>
         </div>
-
         <div class="setting-item">
           <div class="setting-left">
             <div class="icon-box bg-blue-light"><i class="fa-solid fa-car text-blue"></i></div>
@@ -67,7 +66,6 @@
             <span v-else class="setting-value fw-bold text-dark">{{ translatePref('travel', userStore.travelPref) }}</span>
           </div>
         </div>
-
         <div class="setting-item">
           <div class="setting-left">
             <div class="icon-box bg-purple-light"><i class="fa-solid fa-map-location-dot text-purple"></i></div>
@@ -203,7 +201,6 @@ const isResetting = ref(false);
 const isLoading = ref(false);
 const resetForm = ref({ otp: '', newPassword: '' });
 
-// 🌟 版本設定
 const APP_VERSIONS = [
   { version: 'v1.3.0', features: ['優化 AI 行程推薦引擎', '新增官方即時爬蟲同步功能'] },
   { version: 'v1.4.0', features: ['🗺️ 支援離線地圖導航功能', '🌐 新增語音導覽多國語系 (日、韓)', '⚡ 大幅提升 AI 辨識速度'] },
@@ -217,7 +214,6 @@ const showUpdateModal = ref(false);
 const updateState = ref('idle'); 
 const downloadProgress = ref(0);
 
-// 🌟 四國語言字典 (重點：偏好選項現在為 Object 對照)
 const sysLang = ref(localStorage.getItem('shancheng_sys_lang') || 'zh');
 const systemLanguage = ref(sysLang.value);
 
@@ -267,7 +263,6 @@ const t = computed(() => {
   return dict[systemLanguage.value] || dict.zh;
 });
 
-// 🌟 轉換偏好顯示文字的功能
 const translatePref = (type, value) => {
   if (!value) return t.value.notSet;
   const opts = t.value[`${type}Opts`];
@@ -303,9 +298,7 @@ onMounted(() => {
 });
 
 const toggleEdit = () => {
-  if (isEditing.value) {
-    saveProfile();
-  } else {
+  if (isEditing.value) { saveProfile(); } else {
     isEditing.value = true;
     editForm.value.diet = userStore.dietPref || '無限制';
     editForm.value.travel = userStore.travelPref || '大眾運輸 + 步行';
@@ -316,31 +309,44 @@ const toggleEdit = () => {
 const saveProfile = async () => {
   try {
     const res = await fetch(`${NGROK_BASE_URL}/api/update_profile`, { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' }, 
-      body: JSON.stringify({ 
-        username: userStore.username, 
-        diet_pref: editForm.value.diet, 
-        travel_pref: editForm.value.travel, 
-        interest_pref: editForm.value.interest 
-      }) 
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' }, 
+      body: JSON.stringify({ username: userStore.username, diet_pref: editForm.value.diet, travel_pref: editForm.value.travel, interest_pref: editForm.value.interest }) 
     });
     const result = await res.json();
     if (result.status === 'success') {
       userStore.updateProfile(editForm.value.diet, editForm.value.travel, editForm.value.interest);
-      isEditing.value = false;
-      alert(systemLanguage.value === 'zh' ? "✅ 儲存成功！" : "✅ Saved!");
+      isEditing.value = false; alert(systemLanguage.value === 'zh' ? "✅ 儲存成功！" : "✅ Saved!");
     }
   } catch (err) { alert("Error"); }
 };
 
-const changeLanguage = () => {
-  localStorage.setItem('shancheng_sys_lang', systemLanguage.value);
-  window.location.reload(); 
-};
-
+const changeLanguage = () => { localStorage.setItem('shancheng_sys_lang', systemLanguage.value); window.location.reload(); };
 const alertLangUpdate = () => { alert("🔒 v1.5.0 Required"); };
 const togglePush = () => { alert("🔔 Notifications Updated"); };
+
+const checkForUpdate = () => {
+  showUpdateModal.value = true;
+  if (!hasUpdate.value) { updateState.value = 'up-to-date'; return; }
+  updateState.value = 'checking'; downloadProgress.value = 0;
+  setTimeout(() => { updateState.value = 'available'; }, 1500);
+};
+
+const startDownload = () => {
+  updateState.value = 'downloading'; let progress = 0;
+  const interval = setInterval(() => {
+    progress += Math.floor(Math.random() * 15) + 5; 
+    if (progress >= 100) {
+      progress = 100; clearInterval(interval); updateState.value = 'ready';
+      setTimeout(() => { localStorage.setItem('shancheng_app_version', nextUpdateInfo.value.version); window.location.reload(true); }, 1500);
+    }
+    downloadProgress.value = progress;
+  }, 400); 
+};
+
+const closeUpdateModal = () => {
+  if (updateState.value === 'downloading' || updateState.value === 'ready') return;
+  showUpdateModal.value = false; setTimeout(() => { updateState.value = 'idle'; }, 300);
+};
 
 const requestPasswordReset = async () => {
   if (isResetting.value) return (isResetting.value = false);
@@ -373,16 +379,16 @@ const handleLogout = () => { if (confirm("Logout?")) { userStore.logout(); route
 .user-name { font-size: 18px; font-weight: 800; color: #1f2937; margin-bottom: 5px; }
 .level-badge { background: #ecfdf5; color: #10b981; padding: 4px 10px; border-radius: 50px; font-size: 11px; font-weight: 700; }
 
-/* 🌟 編輯按鈕樣式 */
 .btn-edit-profile { position: absolute; top: 15px; right: 15px; border-radius: 50px; padding: 6px 14px; font-size: 13px; font-weight: 700; border: 1px solid #e5e7eb; transition: 0.2s; }
 .btn-edit-profile:active { transform: scale(0.95); }
 
 .section-title { font-size: 13px; font-weight: 700; color: #6b7280; margin: 0 0 10px 15px; text-transform: uppercase; }
 .settings-group { background: white; border-radius: 20px; margin-bottom: 25px; overflow: hidden; }
-.setting-item { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #f3f4f6; }
+.setting-item { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #f3f4f6; cursor:pointer;}
 .setting-left { display: flex; align-items: center; gap: 12px; }
 .icon-box { width: 34px; height: 34px; border-radius: 10px; display: flex; justify-content: center; align-items: center; font-size: 14px; }
 .setting-label { font-size: 15px; font-weight: 600; color: #374151; }
+.setting-right { display: flex; align-items: center; gap: 10px; }
 .setting-value { font-size: 14px; color: #6b7280; font-weight: 500; }
 
 .custom-switch:checked { background-color: #10b981; border-color: #10b981; }
