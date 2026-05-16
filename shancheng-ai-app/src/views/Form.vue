@@ -1,225 +1,258 @@
 <template>
-  <div class="form-container">
-    <div class="header-nav shadow-sm d-flex align-items-center">
-      <router-link to="/" class="back-link text-decoration-none text-dark fs-3 fw-bold">←</router-link>
-      <h2 class="page-title ms-3">規劃專屬行程</h2>
-    </div>
-
-    <div class="container py-4 main-content">
-      <section class="form-section">
-        <h5 class="section-label">1. 誰與您同行？</h5>
-        <div class="selection-grid">
-          <div v-for="opt in audienceOptions" :key="opt.id" class="option-item">
-            <input type="radio" :id="opt.id" :value="opt.label" v-model="selectedAudience" class="hidden-radio">
-            <label :for="opt.id" class="selection-card">
-              <span class="emoji">{{ opt.icon }}</span><span class="label">{{ opt.label }}</span>
-            </label>
+  <div class="form-wrapper">
+    <header class="header-nav">
+      <router-link to="/" class="back-link">←</router-link>
+      <h2 class="page-title">{{ t.title }}</h2>
+    </header>
+    <main class="main-content">
+      <div class="container py-3">
+        
+        <section class="form-section">
+          <h5 class="section-label">1. {{ t.q1 }}</h5>
+          <div class="selection-grid">
+            <div v-for="opt in t.audOpts" :key="opt.id">
+              <input type="radio" :id="opt.id" :value="opt.label" v-model="selectedAudience" class="hidden-radio">
+              <label :for="opt.id" class="selection-card">
+                <span class="emoji">{{ opt.icon }}</span>
+                <span class="label">{{ opt.label }}</span>
+              </label>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="form-section mt-4">
-        <h5 class="section-label">2. 預計停留時間？</h5>
-        <div class="selection-grid two-cols">
-          <div v-for="opt in durationOptions" :key="opt.id" class="option-item">
-            <input type="radio" :id="opt.id" :value="opt.label" v-model="selectedDuration" class="hidden-radio">
-            <label :for="opt.id" class="selection-card">
-              <span class="emoji">{{ opt.icon }}</span><span class="label">{{ opt.label }}</span>
-            </label>
+        <section class="form-section mt-3">
+          <h5 class="section-label">2. {{ t.q2 }}</h5>
+          <div class="selection-grid single-col">
+            <div v-for="opt in t.durOpts" :key="opt.id">
+              <input type="radio" :id="opt.id" :value="opt.label" v-model="selectedDuration" class="hidden-radio">
+              <label :for="opt.id" class="selection-card wide-card">
+                <span class="emoji">{{ opt.icon }}</span>
+                <span class="label">{{ opt.label }}</span>
+              </label>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="form-section mt-4">
-        <h5 class="section-label">3. 您的興趣偏好 (可複選)</h5>
-        <div class="selection-grid">
-          <div v-for="opt in prefOptions" :key="opt.id" class="option-item">
-            <input type="checkbox" :id="opt.id" :value="opt.label" v-model="selectedPreferences" class="hidden-radio">
-            <label :for="opt.id" class="selection-card">
-              <span class="emoji">{{ opt.icon }}</span><span class="label">{{ opt.label }}</span>
-            </label>
+        <section class="form-section mt-3">
+          <h5 class="section-label">3. {{ t.q3 }}</h5>
+          <div class="selection-grid">
+            <div v-for="opt in t.prefOpts" :key="opt.id">
+              <input type="checkbox" :id="opt.id" :value="opt.label" v-model="selectedPreferences" class="hidden-radio">
+              <label :for="opt.id" class="selection-card">
+                <span class="emoji">{{ opt.icon }}</span>
+                <span class="label">{{ opt.label }}</span>
+              </label>
+            </div>
           </div>
-        </div>
-      </section>
-    </div>
+        </section>
 
-    <div class="footer-btn-area">
-      <button class="btn-ai-submit shadow" @click="fetchAIRecommendation(false)" :disabled="isSubmitting">
-        <span v-if="!isSubmitting"><span class="sparkle">✨</span> AI 開始規劃專屬行程</span>
-        <span v-else>⏳ 串接 Gemini 運算中...</span>
+        <section class="form-section mt-3">
+          <h5 class="section-label">4. {{ t.q4 }}</h5>
+          <div class="selection-grid single-col">
+            <div v-for="opt in t.areaOpts" :key="opt.id">
+              <input type="radio" :id="opt.id" :value="opt.label" v-model="selectedArea" class="hidden-radio">
+              <label :for="opt.id" class="selection-card wide-card">
+                <span class="emoji">{{ opt.icon }}</span>
+                <span class="label">{{ opt.label }}</span>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section mt-3">
+          <h5 class="section-label">5. {{ t.q5 }}</h5>
+          <div class="custom-note-box">
+            <textarea v-model="customNote" class="custom-textarea" rows="4"></textarea>
+          </div>
+        </section>
+
+        <div style="height: 100px;"></div>
+      </div>
+    </main>
+
+    <footer v-if="canShowSubmit" class="footer-action shadow-lg">
+      <button class="btn-ai-submit" @click="fetchAIRecommendation(false)" :disabled="isSubmitting">
+        <span v-if="!isSubmitting">✨ {{ t.submit }}</span>
+        <span v-else>⏳ {{ t.loading }}</span>
       </button>
-    </div>
+    </footer>
 
     <div class="ai-result-overlay" :class="{ 'active': showResult }">
       <div class="overlay-backdrop" @click="closeResult"></div>
       <div class="result-card">
-        <div class="drag-handle"></div>
-        
-        <div v-if="isRegenerating" class="loading-state-box">
-          <div class="spinner-border text-success mb-3" role="status"></div>
-          <h5 class="fw-bold text-dark">正在為您探索私房秘境...</h5>
-          <p class="text-muted small">Gemini 正在重新規劃不同路線</p>
-        </div>
-
-        <div v-else class="result-content-wrap">
+        <div class="result-content-wrap" v-if="!isRegenerating">
           <div class="result-header">
-            <div class="icon-sparkle">✨</div>
+            <span class="result-icon">✨</span>
             <h3 class="result-title">{{ aiResultTitle }}</h3>
           </div>
-          <div class="result-content">
-            <p class="result-text">{{ aiResultText }}</p>
+          <div class="result-body">
+            <div class="result-text" v-html="formattedAiResultText"></div>
           </div>
-          
-          <div class="result-actions">
-            <button class="btn-start-journey mb-2" @click="closeResult">太棒了，就決定是這個！</button>
-            <button class="btn-regenerate" @click="fetchAIRecommendation(true)">
-              <i class="fa-solid fa-rotate-right me-1"></i> 想看其他路線 (重新生成)
-            </button>
+          <div class="result-footer">
+            <button class="btn-regenerate" @click="fetchAIRecommendation(true)">🔄 {{ t.regenerate }}</button>
+            <button class="btn-confirm" @click="closeResult">{{ t.ok }}</button>
           </div>
         </div>
-
+        <div v-else class="loading-state py-5 text-center">
+          <div class="spinner-border text-success mb-2"></div>
+          <p>{{ t.loading }}</p>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { useUserStore } from '../stores/userStore';
+import { useRouter } from 'vue-router';
 
-const audienceOptions = [
-  { id: 'aud-f', icon: '👨‍👩‍👧', label: '親子' },
-  { id: 'aud-c', icon: '👩‍❤️‍👨', label: '情侶' },
-  { id: 'aud-s', icon: '🧓', label: '銀髮族' }
-];
-const durationOptions = [
-  { id: 'dur-h', icon: '🌤️', label: '半日遊' },
-  { id: 'dur-f', icon: '☀️', label: '一日遊' }
-];
-const prefOptions = [
-  { id: 'p-e', icon: '🌿', label: '生態探索' },
-  { id: 'p-f', icon: '🍲', label: '美食旅遊' },
-  { id: 'p-p', icon: '📷', label: '攝影景點' }
-];
+const userStore = useUserStore();
+const router = useRouter();
 
-const selectedAudience = ref('親子');
-const selectedDuration = ref('一日遊');
-const selectedPreferences = ref([]);
+const sysLang = ref(localStorage.getItem('shancheng_sys_lang') || 'zh');
+const t = computed(() => {
+  const dict = {
+    zh: { 
+      title: '規劃專屬行程', q1: '誰與您同行？', q2: '預計停留時間？', q3: '興趣偏好', q4: '想探索的區域', q5: '其他想交代的', submit: 'AI 開始規劃專屬行程', loading: '串接 AI 運算中...', regenerate: '重新規劃', ok: '完成', resultTitle: '✨ 行程提案',
+      audOpts: [{id:'a1',icon:'👨‍👩‍👧',label:'親子'},{id:'a2',icon:'👩‍❤️‍👨',label:'情侶'},{id:'a3',icon:'🧓',label:'銀髮族'},{id:'a4',icon:'🧑‍🤝‍🧑',label:'好友'}],
+      durOpts: [{id:'d1',icon:'🌤️',label:'半日遊'},{id:'d2',icon:'☀️',label:'一日遊'}],
+      prefOpts: [{id:'p1',icon:'🌿',label:'生態探索'},{id:'p2',icon:'🍲',label:'美食旅遊'},{id:'p3',icon:'📷',label:'攝影景點'},{id:'p4',icon:'🌲',label:'森林步道'}],
+      areaOpts: [{id:'r1',icon:'🎋',label:'鹿谷鄉｜小半天'},{id:'r2',icon:'🍵',label:'魚池鄉｜大雁'},{id:'r3',icon:'☕',label:'國姓鄉｜糯米橋'}]
+    },
+    en: { 
+      title: 'Plan Trip', q1: 'Who is with you?', q2: 'Duration?', q3: 'Preferences', q4: 'Area to Explore', q5: 'Additional Notes', submit: 'Start AI Planning', loading: 'AI is thinking...', regenerate: 'Regenerate', ok: 'OK', resultTitle: '✨ Trip Proposal',
+      audOpts: [{id:'a1',icon:'👨‍👩‍👧',label:'Family'},{id:'a2',icon:'👩‍❤️‍👨',label:'Couple'},{id:'a3',icon:'🧓',label:'Seniors'},{id:'a4',icon:'🧑‍🤝‍🧑',label:'Friends'}],
+      durOpts: [{id:'d1',icon:'🌤️',label:'Half Day'},{id:'d2',icon:'☀️',label:'Full Day'}],
+      prefOpts: [{id:'p1',icon:'🌿',label:'Eco Tour'},{id:'p2',icon:'🍲',label:'Food'},{id:'p3',icon:'📷',label:'Photography'},{id:'p4',icon:'🌲',label:'Forest Trail'}],
+      areaOpts: [{id:'r1',icon:'🎋',label:'Lugu Township'},{id:'r2',icon:'🍵',label:'Yuchi Township'},{id:'r3',icon:'☕',label:'Guoshing Township'}]
+    },
+    ja: { 
+      title: '旅行を計画', q1: '同行者は？', q2: '滞在時間？', q3: '好み', q4: '探索エリア', q5: 'その他の要望', submit: 'AI プラン生成', loading: 'AI 計算中...', regenerate: '再生成する', ok: '完了', resultTitle: '✨ 旅行プラン提案',
+      audOpts: [{id:'a1',icon:'👨‍👩‍👧',label:'家族'},{id:'a2',icon:'👩‍❤️‍👨',label:'カップル'},{id:'a3',icon:'🧓',label:'シニア'},{id:'a4',icon:'🧑‍🤝‍🧑',label:'友人'}],
+      durOpts: [{id:'d1',icon:'🌤️',label:'半日'},{id:'d2',icon:'☀️',label:'一日'}],
+      prefOpts: [{id:'p1',icon:'🌿',label:'エコツアー'},{id:'p2',icon:'🍲',label:'グルメ'},{id:'p3',icon:'📷',label:'写真撮影'},{id:'p4',icon:'🌲',label:'森林コース'}],
+      areaOpts: [{id:'r1',icon:'🎋',label:'鹿谷郷'},{id:'r2',icon:'🍵',label:'魚池郷'},{id:'r3',icon:'☕',label:'国姓郷'}]
+    },
+    ko: { 
+      title: '여행 계획', q1: '동행인?', q2: '체류 시간?', q3: '관심사', q4: '탐색할 지역', q5: '추가 요청사항', submit: 'AI 계획 시작', loading: 'AI 연산 중...', regenerate: '다시 계획하기', ok: '확인', resultTitle: '✨ 여행 추천 일정',
+      audOpts: [{id:'a1',icon:'👨‍👩‍👧',label:'가족'},{id:'a2',icon:'👩‍❤️‍👨',label:'커플'},{id:'a3',icon:'🧓',label:'시니어'},{id:'a4',icon:'🧑‍🤝‍🧑',label:'친구'}],
+      durOpts: [{id:'d1',icon:'🌤️',label:'반일'},{id:'d2',icon:'☀️',label:'하루'}],
+      prefOpts: [{id:'p1',icon:'🌿',label:'에코 투어'},{id:'p2',icon:'🍲',label:'음식'},{id:'p3',icon:'📷',label:'사진'},{id:'p4',icon:'🌲',label:'산림 산책'}],
+      areaOpts: [{id:'r1',icon:'🎋',label:'루구향'},{id:'r2',icon:'🍵',label:'위츠향'},{id:'r3',icon:'☕',label:'궈싱향'}]
+    }
+  }; 
+  return dict[sysLang.value] || dict.zh;
+});
 
-// 狀態控制變數
-const isSubmitting = ref(false);     // 控制底部的首度送出按鈕
-const isRegenerating = ref(false);   // 控制卡片內部的重新生成狀態
-const showResult = ref(false);
-const aiResultTitle = ref('');
+const NGROK_BASE_URL = "https://demystify-primary-correct.ngrok-free.dev";
+const selectedAudience = ref(''); 
+const selectedDuration = ref(''); 
+const selectedPreferences = ref([]); 
+const selectedArea = ref(''); 
+const customNote = ref('');
+
+const canShowSubmit = computed(() => selectedPreferences.value.length > 0 || customNote.value.trim().length > 0);
+const isSubmitting = ref(false); 
+const isRegenerating = ref(false); 
+const showResult = ref(false); 
+const aiResultTitle = ref(''); 
 const aiResultText = ref('');
 
-// 🌟 將 API 呼叫獨立成一個共用函數，並加入 isRetry 參數
-const fetchAIRecommendation = async (isRetry = false) => {
-  if (selectedPreferences.value.length === 0) {
-    alert("請至少選擇一個興趣偏好哦！");
-    return;
-  }
+const formattedAiResultText = computed(() => {
+  let text = aiResultText.value;
+  text = text.replace(/```[a-zA-Z]*\n?/g, '').replace(/```/g, '');
+  text = text.replace(/(?<!href=")(https?:\/\/(?:www\.)?google\.com\/(?:maps|dir)[^\s<]+)/g, '<br><a href="$1" target="_blank" class="map-route-btn">🗺️ Route Map</a>');
+  text = text.replace(/\n/g, '<br>').replace(/- \*\*([^\*]+)\*\*/g, '<br><span class="time-badge">🕒 $1</span>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  return text;
+});
 
-  // 根據情境切換不同的 loading 狀態
-  if (isRetry) {
-    isRegenerating.value = true;
-  } else {
-    isSubmitting.value = true;
-  }
+onMounted(() => { 
+  userStore.restoreSession(); 
+  if (!userStore.isLoggedIn) router.push('/'); 
+  
+  // 自動根據語言設定預設值
+  const defaultOpts = t.value;
+  selectedAudience.value = defaultOpts.audOpts[0].label;
+  selectedDuration.value = defaultOpts.durOpts[1].label;
+  selectedArea.value = defaultOpts.areaOpts[1].label;
+});
+
+const fetchAIRecommendation = async (isRetry = false) => {
+  isRetry ? (isRegenerating.value = true) : (isSubmitting.value = true);
+  
+  // 🌟 終極防呆指令：強制 AI 使用選擇的系統語言，不准用中文！
+  const langNames = { zh: "繁體中文", en: "English", ja: "日本語 (Japanese)", ko: "한국어 (Korean)" };
+  const targetLang = langNames[sysLang.value] || "繁體中文";
+  const forceLangInstruction = `\n\n⚠️ [CRITICAL INSTRUCTION] You MUST generate the ENTIRE trip proposal, including all titles, body text, and any descriptions, EXCLUSIVELY in ${targetLang}. DO NOT output Chinese unless the requested language is Chinese.`;
+  
+  const finalNote = customNote.value + forceLangInstruction;
 
   try {
-    // ⚠️ 記得把 IP 換成您手機測試用的 172.20.10.9
-    const response = await fetch('https://shancheng-backend.onrender.com', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        audience: selectedAudience.value,
-        duration: selectedDuration.value,
-        preferences: selectedPreferences.value,
-        is_retry: isRetry  // 把重新生成的標記傳給後端
-      })
+    const response = await fetch(`${NGROK_BASE_URL}/api/recommend`, { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' }, 
+      body: JSON.stringify({ 
+        audience: selectedAudience.value, 
+        duration: selectedDuration.value, 
+        preferences: selectedPreferences.value, 
+        area: selectedArea.value, 
+        custom_note: finalNote, 
+        language: targetLang,
+        is_retry: isRetry 
+      }) 
     });
-
     const result = await response.json();
-    
-    if (result.status === "success") {
-      aiResultTitle.value = result.data.title;
-      aiResultText.value = result.data.preview;
-      showResult.value = true; // 打開或保持卡片開啟
-    } else {
-      alert("AI 生成發生錯誤，請稍後再試！");
-    }
-  } catch (error) {
-    console.error(error);
-    alert('連線失敗！請確認 Python 伺服器是否有啟動。');
-  } finally {
-    isSubmitting.value = false;
-    isRegenerating.value = false;
+    if (result.status === "success") { 
+      // 🌟 用前端的多國語言標題，覆蓋後端寫死的中文
+      aiResultTitle.value = t.value.resultTitle; 
+      aiResultText.value = result.data.preview; 
+      showResult.value = true; 
+    } 
+  } catch (e) {
+    alert("連線失敗，請檢查網路狀態或伺服器是否開啟。");
+  } finally { 
+    isSubmitting.value = false; 
+    isRegenerating.value = false; 
   }
 };
 
-const closeResult = () => {
-  showResult.value = false;
+const closeResult = () => { 
+  showResult.value = false; 
 };
 </script>
 
 <style scoped>
-/* 前半段保持您原本的 CSS 不動，此處直接接續卡片的樣式 */
-.form-container { background: #f9fafb; min-height: 100vh; padding-bottom: 140px; }
-.header-nav { background: white; padding: 15px 20px; display: flex; align-items: center; gap: 15px; position: sticky; top: 0; z-index: 100; }
-.back-link { color: #333; font-size: 20px; text-decoration: none; }
-.page-title { font-size: 18px; font-weight: 700; margin: 0; color: #111827; }
-.section-label { font-size: 15px; font-weight: 600; color: #6b7280; margin-bottom: 15px; }
-.selection-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.selection-grid.two-cols { grid-template-columns: repeat(2, 1fr); }
-.hidden-radio { position: absolute; opacity: 0; width: 0; height: 0; }
-.selection-card { background: white; border: 2px solid #f3f4f6; border-radius: 16px; padding: 15px 10px; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
-.selection-card .emoji { font-size: 24px; }
-.selection-card .label { font-size: 14px; font-weight: 600; color: #374151; }
-.hidden-radio:checked + .selection-card { border-color: #10b981; background: #ecfdf5; transform: scale(1.02); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1); }
-.hidden-radio:checked + .selection-card .label { color: #065f46; }
-.footer-btn-area { position: fixed; bottom: 70px; left: 0; width: 100%; padding: 15px 20px 20px; background: linear-gradient(0deg, #f9fafb 70%, transparent); z-index: 1020; }
-.btn-ai-submit { width: 100%; background: #10b981; color: white; border: none; padding: 16px; border-radius: 50px; font-weight: 700; font-size: 16px; display: flex; justify-content: center; align-items: center; gap: 10px; transition: 0.2s;}
-.btn-ai-submit:disabled { background: #9ca3af; cursor: not-allowed; }
-@media (min-width: 768px) { .footer-btn-area { bottom: 0; } }
+.form-wrapper { position: fixed; inset: 0; display: flex; flex-direction: column; background: #f4f7f9; overflow: hidden; z-index: 10; text-align: left; }
+.header-nav { background: white; padding: 15px 20px; display: flex; align-items: center; gap: 15px; flex-shrink: 0; }
+.main-content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 160px; }
+.footer-action { position: fixed; bottom: 70px; left: 0; width: 100%; background: white; padding: 15px 20px; border-top: 1px solid #eee; z-index: 1000; box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.03); }
+.back-link { font-size: 24px; color: #000; text-decoration: none; font-weight: bold; }
+.page-title { font-size: 19px; font-weight: 800; margin: 0; }
+.form-section { background: white; border-radius: 15px; padding: 18px; margin: 0 10px 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
+.section-label { font-size: 16px; font-weight: 700; color: #111; margin-bottom: 12px; }
+.selection-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.selection-grid.single-col { grid-template-columns: 1fr; }
+.hidden-radio { position: absolute; opacity: 0; }
+.selection-card { border: 2px solid #e5e7eb; border-radius: 12px; padding: 12px; display: flex; align-items: center; justify-content: flex-start; gap: 10px; background: white; cursor: pointer; transition: 0.2s; }
+.hidden-radio:checked + .selection-card { border-color: #10b981; background: #f0fdf4; }
+.label { font-size: 14px; font-weight: 600; color: #333; }
+.custom-note-box { border: 2px solid #10b981; border-radius: 12px; overflow: hidden; }
+.custom-textarea { width: 100%; border: none; padding: 12px; font-size: 14px; outline: none; resize: none; }
+.btn-ai-submit { width: 100%; background: #44a57a; color: white; border: none; padding: 15px; border-radius: 50px; font-size: 16px; font-weight: 700; }
+.ai-result-overlay { position: fixed; inset: 0; z-index: 9999; display: none; }
+.ai-result-overlay.active { display: flex; flex-direction: column; justify-content: flex-end; }
+.overlay-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
+.result-card { position: relative; background: white; border-radius: 25px 25px 0 0; padding: 25px; padding-bottom: 100px; max-height: 85vh; overflow-y: auto; }
 
-/* 🌟 AI 結果展示卡與重試按鈕的 CSS */
-.ai-result-overlay { position: fixed; inset: 0; z-index: 3000; display: flex; flex-direction: column; justify-content: flex-end; pointer-events: none; }
-.ai-result-overlay.active { pointer-events: auto; }
-.overlay-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.5); opacity: 0; transition: opacity 0.3s ease; }
-.ai-result-overlay.active .overlay-backdrop { opacity: 1; }
+/* 按鈕區域並排排版 */
+.result-footer { display: flex; gap: 10px; margin-top: 5px; }
+.btn-regenerate { flex: 1; background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; padding: 14px; border-radius: 12px; font-weight: 700; margin-bottom: 10px; transition: 0.2s; }
+.btn-regenerate:active { transform: scale(0.98); background: #e2e8f0; }
+.btn-confirm { flex: 1; background: #111; color: white; border: none; padding: 14px; border-radius: 12px; font-weight: 700; margin-bottom: 10px; transition: 0.2s; }
+.btn-confirm:active { transform: scale(0.98); }
 
-.result-card {
-  position: relative; background: white; border-radius: 30px 30px 0 0;
-  padding: 30px 25px 40px; transform: translateY(100%);
-  transition: transform 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
-  box-shadow: 0 -10px 40px rgba(0,0,0,0.1); display: flex; flex-direction: column; min-height: 45vh; max-height: 85vh;
-}
-.ai-result-overlay.active .result-card { transform: translateY(0); }
-.drag-handle { width: 40px; height: 5px; background: #e5e7eb; border-radius: 3px; margin: 0 auto 20px; }
-
-/* 載入中狀態的置中排版 */
-.loading-state-box {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; 
-  flex-grow: 1; padding: 40px 0; text-align: center;
-}
-
-.result-content-wrap { display: flex; flex-direction: column; flex-grow: 1; }
-.result-header { display: flex; align-items: flex-start; gap: 15px; margin-bottom: 20px; }
-.icon-sparkle { font-size: 32px; background: #ecfdf5; padding: 12px; border-radius: 16px; line-height: 1; }
-.result-title { font-size: 22px; font-weight: 800; color: #111827; margin: 5px 0 0; line-height: 1.3; }
-
-.result-content { overflow-y: auto; padding-right: 5px; margin-bottom: 30px; }
-.result-text { font-size: 16px; color: #4b5563; line-height: 1.8; letter-spacing: 0.5px; white-space: pre-wrap; }
-
-/* 雙按鈕設計 */
-.result-actions { display: flex; flex-direction: column; gap: 10px; margin-top: auto; }
-.btn-start-journey {
-  width: 100%; background: #111827; color: white; border: none; padding: 16px;
-  border-radius: 16px; font-weight: 700; font-size: 16px; box-shadow: 0 8px 20px rgba(17, 24, 39, 0.2);
-}
-.btn-regenerate {
-  width: 100%; background: transparent; color: #6b7280; border: 2px solid #e5e7eb; padding: 14px;
-  border-radius: 16px; font-weight: 700; font-size: 15px; transition: 0.2s;
-}
-.btn-regenerate:active { background: #f3f4f6; color: #374151; }
+.result-text { font-size: 15px; color: #444; line-height: 1.8; margin-bottom: 25px; word-wrap: break-word; }
+:deep(.time-badge) { display: inline-block; background-color: #f0fdf4; color: #059669; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 6px; font-weight: 800; font-size: 13px; margin-right: 6px; margin-top: 10px; }
+:deep(.map-route-btn) { display: block; background-color: #3b82f6; color: white !important; text-align: center; padding: 12px; border-radius: 12px; text-decoration: none; font-size: 15px; font-weight: 700; margin-top: 20px; }
 </style>
