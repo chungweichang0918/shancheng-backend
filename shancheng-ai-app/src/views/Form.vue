@@ -161,9 +161,17 @@ const aiResultText = ref('');
 
 const formattedAiResultText = computed(() => {
   let text = aiResultText.value;
+
   text = text.replace(/```[a-zA-Z]*\n?/g, '').replace(/```/g, '');
-  text = text.replace(/(?<!href=")(https?:\/\/(?:www\.)?google\.com\/(?:maps|dir)[^\s<]+)/g, '<br><a href="$1" target="_blank" class="map-route-btn">🗺️ Route Map</a>');
-  text = text.replace(/\n/g, '<br>').replace(/- \*\*([^\*]+)\*\*/g, '<br><span class="time-badge">🕒 $1</span>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  
+  text = text.replace(/#{2,5}\s?(.*?)(?=\n|$)/g, '<h5 class="fw-bold text-success mt-3">$1</h5>');
+  
+  text = text.replace(/(?<!href=")(https?:\/\/[^\s<]*google[^\s<]*[^\s<]+)/g, '<br><a href="$1" target="_blank" class="map-route-btn">🗺️ 開啟 Google 導航</a>');
+  
+  text = text.replace(/\n/g, '<br>')
+             .replace(/- \*\*([^\*]+)\*\*/g, '<br><span class="time-badge">🕒 $1</span>')
+             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+             
   return text;
 });
 
