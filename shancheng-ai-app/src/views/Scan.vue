@@ -51,6 +51,9 @@ const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
 
+// 🌟 統一從 config.js 引入後端 API 網址
+import { NGROK_BASE_URL } from '../config';
+
 // 🌟 四國語言字典
 const sysLang = ref(localStorage.getItem('shancheng_sys_lang') || 'zh');
 const t = computed(() => {
@@ -62,8 +65,6 @@ const t = computed(() => {
   };
   return dict[sysLang.value] || dict.zh;
 });
-
-const NGROK_BASE_URL = "https://demystify-primary-correct.ngrok-free.dev";
 
 const videoRef = ref(null);
 const canvasRef = ref(null);
