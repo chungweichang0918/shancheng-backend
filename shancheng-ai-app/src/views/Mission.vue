@@ -88,7 +88,8 @@ const router = useRouter();
 const isSyncing = ref(false);
 const displayPoints = ref(0);
 
-const NGROK_BASE_URL = "https://demystify-primary-correct.ngrok-free.dev";
+// 🌟 統一從 config.js 引入後端 API 網址
+import { NGROK_BASE_URL } from '../config';
 const API_HEADERS = { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" };
 
 // 🌟 四國語言字典 (包含所有提示與警告文字)
