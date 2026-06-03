@@ -111,7 +111,7 @@ const userStore = useUserStore();
 const router = useRouter();
 
 // 🌟 統一從 config.js 引入後端 API 網址
-import { NGROK_BASE_URL } from '../config';
+import { NGROK_BASE_URL } from './config';
 
 const sysLang = ref(localStorage.getItem('shancheng_sys_lang') || 'zh');
 const t = computed(() => {
