@@ -121,6 +121,9 @@ import { useRouter } from 'vue-router';
 const userStore = useUserStore();
 const router = useRouter();
 
+// 🌟 統一從 config.js 引入後端 API 網址
+import { NGROK_BASE_URL } from '../config';
+
 const appVersion = ref(localStorage.getItem('shancheng_app_version') || 'v1.3.0');
 const isV1_4_OrAbove = computed(() => appVersion.value === 'v1.4.0' || appVersion.value === 'v1.5.0');
 
@@ -136,7 +139,6 @@ const t = computed(() => {
   return dict[sysLang.value] || dict.zh;
 });
 
-const NGROK_BASE_URL = "https://demystify-primary-correct.ngrok-free.dev";
 const currentAreaIndex = ref(0);
 
 const allLanguagesData = {
