@@ -158,7 +158,7 @@ const userStore = useUserStore();
 const router = useRouter();
 
 // 🌟 統一從 config.js 引入後端 API 網址
-import { NGROK_BASE_URL, API_HEADERS } from '../config';
+import { NGROK_BASE_URL, API_HEADERS } from './config';
 
 // 🌟 四國語言即時翻譯字典
 const sysLang = ref(localStorage.getItem('shancheng_sys_lang') || 'zh');
