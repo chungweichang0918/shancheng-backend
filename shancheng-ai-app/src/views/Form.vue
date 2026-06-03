@@ -110,6 +110,9 @@ import { useRouter } from 'vue-router';
 const userStore = useUserStore();
 const router = useRouter();
 
+// 🌟 統一從 config.js 引入後端 API 網址
+import { NGROK_BASE_URL } from '../config';
+
 const sysLang = ref(localStorage.getItem('shancheng_sys_lang') || 'zh');
 const t = computed(() => {
   const dict = {
@@ -145,7 +148,6 @@ const t = computed(() => {
   return dict[sysLang.value] || dict.zh;
 });
 
-const NGROK_BASE_URL = "https://demystify-primary-correct.ngrok-free.dev";
 const selectedAudience = ref(''); 
 const selectedDuration = ref(''); 
 const selectedPreferences = ref([]); 
@@ -161,17 +163,9 @@ const aiResultText = ref('');
 
 const formattedAiResultText = computed(() => {
   let text = aiResultText.value;
-
   text = text.replace(/```[a-zA-Z]*\n?/g, '').replace(/```/g, '');
-  
-  text = text.replace(/#{2,5}\s?(.*?)(?=\n|$)/g, '<h5 class="fw-bold text-success mt-3">$1</h5>');
-  
-  text = text.replace(/(?<!href=")(https?:\/\/[^\s<]*google[^\s<]*[^\s<]+)/g, '<br><a href="$1" target="_blank" class="map-route-btn">🗺️ 開啟 Google 導航</a>');
-  
-  text = text.replace(/\n/g, '<br>')
-             .replace(/- \*\*([^\*]+)\*\*/g, '<br><span class="time-badge">🕒 $1</span>')
-             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-             
+  text = text.replace(/(?<!href=")(https?:\/\/(?:www\.)?google\.com\/(?:maps|dir)[^\s<]+)/g, '<br><a href="$1" target="_blank" class="map-route-btn">🗺️ Route Map</a>');
+  text = text.replace(/\n/g, '<br>').replace(/- \*\*([^\*]+)\*\*/g, '<br><span class="time-badge">🕒 $1</span>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   return text;
 });
 
